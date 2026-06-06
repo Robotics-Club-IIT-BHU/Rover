@@ -928,28 +928,49 @@
     <limit lower="-0.3" upper="0.3" effort="10" velocity="1"/>
 </joint>
 
-<gazebo>
-  <plugin name="diff_drive" filename="libgazebo_ros_diff_drive.so">
 
-    <left_joint>wheel_back_left_joint wheel_front_left_joint wheel_mid_left_joint</left_joint>
-    <right_joint>wheel_back_right_joint wheel_front_right_joint wheel_mid_right_joint</right_joint>
+<!-- ===== RGB-D Camera ===== -->
+<link name="camera_link">
+  <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="0.05"/>
+    <inertia ixx="1e-5" iyy="1e-5" izz="1e-5"
+             ixy="0" ixz="0" iyz="0"/>
+  </inertial>
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.04 0.10 0.03"/>
+    </geometry>
+    <material name="black">
+      <color rgba="0.1 0.1 0.1 1.0"/>
+    </material>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.04 0.10 0.03"/>
+    </geometry>
+  </collision>
+</link>
 
-    <robot_base_frame>base_link</robot_base_frame>
+<!-- optical frame: z forward, x right, y down — standard camera convention -->
+<link name="camera_optical_link"/>
 
-    <wheel_separation>0.71</wheel_separation>
+<joint name="camera_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="camera_link"/>
+  <!-- 0.425 forward (x), 0.325 left (y), 0.1 up (z) from base_link centre,
+       sitting on top of the chassis (chassis half-height = 0.10 m) -->
+  <origin xyz="0.425 0 0.1" rpy="0 0 0"/>
+</joint>
 
-    <wheel_radius>0.1</wheel_radius>
-
-    <topic>cmd_vel</topic>
-    <odometry_topic>odom</odometry_topic>
-    <publish_odom>true</publish_odom>
-    <publish_odom_tf>true</publish_odom_tf>
-    <publish_wheel_tf>false</publish_wheel_tf>
-
-    <update_rate>50</update_rate>
-
-  </plugin>
-</gazebo>
-
+<!-- optical frame rotated so +Z points forward into the scene -->
+<joint name="camera_optical_joint" type="fixed">
+  <parent link="camera_link"/>
+  <child link="camera_optical_link"/>
+  <!-- standard ROS optical convention: roll -90°, yaw -90° -->
+  <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+</joint>
 
 </robot>
