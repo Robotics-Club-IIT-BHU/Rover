@@ -21,8 +21,8 @@ import tf_transformations  # from tf_transformations pip package
 #  CONFIG
 # ══════════════════════════════════════════════════════════════════════════════
 
-ROVER_URDF    = "/home/abhinava/roversim/src/drive/urdf/rover.urdf"
-TERRAIN_OBJ   = "/home/abhinava/roversim/src/drive/drive/mount.blend1.obj"
+ROVER_URDF    = "/home/$USER/roversim/src/drive/urdf/rover.urdf"
+TERRAIN_OBJ   = "/home/$USER/roversim/src/drive/drive/mount.blend1.obj"
 
 # Camera intrinsics
 CAM_WIDTH     = 640
