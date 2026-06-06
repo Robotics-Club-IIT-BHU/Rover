@@ -120,12 +120,12 @@ for _ in range(500):
         baseCollisionShapeIndex=p.createCollisionShape(
             shapeType=p.GEOM_MESH,
             fileName=terrain_path,
-            meshScale=[0.3, 0.2, 0.3]
+            meshScale=[0.3, 0.14, 0.3]
         ),
         baseVisualShapeIndex=p.createVisualShape(
             shapeType=p.GEOM_MESH,
             fileName=terrain_path,
-            meshScale=[0.3, 0.2, 0.3]
+            meshScale=[0.3, 0.14, 0.3]
         ),
         basePosition=[x, y, 0],
         baseOrientation=p.getQuaternionFromEuler(
@@ -133,7 +133,6 @@ for _ in range(500):
         )
     )
 
-print("Done")
 
 rover_path = "rover.urdf"  # update if inside folder
 
@@ -153,7 +152,7 @@ num_joints = p.getNumJoints(rover_id)
 print("Total joints:", num_joints)
 print("\nJoint list:\n")
 
-for i in range(num_joints-5):
+for i in range(num_joints):
     info = p.getJointInfo(rover_id, i)
 
     joint_id = info[0]
@@ -169,7 +168,7 @@ for i in range(num_joints-5):
                             targetVelocity=0,
                             force=0)
 
-    print(f"Link ID: {joint_id} | Link Name: {joint_name}")
+    print(f"Link ID: {link_index} | Link Name: {link_name}")
 
     # print(f"ID: {joint_id} | Name: {joint_name} | Type: {joint_type}")
 
@@ -257,6 +256,6 @@ def right(velocity, force):
         )
 
 while True:
-    forward(20, 13)
+    forward(10, 8)
     p.stepSimulation()
     time.sleep(1. / 240.)
