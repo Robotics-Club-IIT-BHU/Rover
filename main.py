@@ -99,7 +99,7 @@ p.setGravity(0, 0, -9.81)
 #     baseOrientation=p.getQuaternionFromEuler([0, 0, 1.57083]),
 # )
 
-terrain_path = "/home/user/roversim/src/drive/drive/mount.blend1.obj"
+terrain_path = "/user/roversim/src/drive/drive/mount.blend1.obj"
 
 placed_positions = []
 
@@ -144,7 +144,7 @@ for _ in range(500):
     )
 
 
-rover_path = "/home/user/roversim/src/drive/urdf/rover.urdf"  # update if inside folder
+rover_path = "/user/roversim/src/drive/urdf/rover.urdf"  # update if inside folder
 
 rover_start_pos = [-7, 0, 0.5]
 rover_start_orientation = p.getQuaternionFromEuler([0, 0, 0])
