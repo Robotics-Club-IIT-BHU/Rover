@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Unicast peer discovery for CycloneDDS.
+
+     Campus WiFi drops multicast, which is how DDS normally finds peers.
+     Naming the peer explicitly removes the need for multicast entirely:
+     each side probes the other directly over unicast UDP.
+
+     Set ATHENA_PEER to the OTHER machine's address before sourcing this:
+     on the Jetson that is the laptop, on the laptop it is the Jetson.
+     Use the VPN address (Tailscale 100.x.y.z) if the network isolates
+     clients from each other; the plain LAN address if it does not.
+-->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="any">
+    <General>
+      <!-- Without this Cyclone may bind docker0 or a stale VPN interface.
+           ${ATHENA_IFACE} lets one file serve both machines. -->
+      <Interfaces>
+        <NetworkInterface autodetermine="true" priority="default"
+                          multicast="false"/>
+      </Interfaces>
+      <AllowMulticast>false</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>20</MaxAutoParticipantIndex>
+      <Peers>
+        <!-- Expanded from the environment so this file needs no editing. -->
+        <Peer address="${ATHENA_PEER}"/>
+      </Peers>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

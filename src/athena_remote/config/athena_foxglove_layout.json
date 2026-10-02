@@ -1,0 +1,496 @@
+{
+  "configById": {
+    "Plot!vel": {
+      "paths": [
+        {
+          "value": "/odometry/local.twist.twist.linear.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "measured m/s",
+          "color": "#48dbfb"
+        },
+        {
+          "value": "/cmd_vel.linear.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "commanded m/s",
+          "color": "#ff9f43"
+        },
+        {
+          "value": "/cmd_vel_nav.linear.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "controller linear m/s",
+          "color": "#1dd1a1"
+        },
+        {
+          "value": "/cmd_vel_nav.angular.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "controller ANGULAR rad/s",
+          "color": "#ff6b6b"
+        },
+        {
+          "value": "/odometry/local.twist.twist.angular.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "measured rad/s",
+          "color": "#c56cf0"
+        }
+      ],
+      "showLegend": true,
+      "isSynced": true,
+      "legendDisplay": "floating",
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "sidebarDimension": 200,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 30
+    },
+    "RawMessages!navstatus": {
+      "topicPath": "/athena/nav_status.data",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all",
+      "fontSize": 13,
+      "defaultExpanded": false
+    },
+    "RawMessages!goal": {
+      "topicPath": "/athena/goal_status.data",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all",
+      "fontSize": 13,
+      "defaultExpanded": false
+    },
+    "Tab!controls": {
+      "activeTabIdx": 3,
+      "tabs": [
+        {
+          "title": "Mark",
+          "layout": "Publish!wp_save"
+        },
+        {
+          "title": "Return",
+          "layout": "Publish!wp_goto"
+        },
+        {
+          "title": "Speed",
+          "layout": "Publish!speed"
+        },
+        {
+          "title": "Go to",
+          "layout": "Publish!goal"
+        }
+      ]
+    },
+    "Publish!wp_save": {
+      "topicName": "/athena/waypoint_save",
+      "datatype": "std_msgs/msg/String",
+      "buttonText": "Mark this spot",
+      "buttonTooltip": "",
+      "advancedView": true,
+      "value": "{\n  \"data\": \"charging_point\"\n}"
+    },
+    "Publish!wp_goto": {
+      "topicName": "/athena/waypoint_goto",
+      "datatype": "std_msgs/msg/String",
+      "buttonText": "Return to waypoint",
+      "buttonTooltip": "",
+      "advancedView": true,
+      "value": "{\n  \"data\": \"charging_point\"\n}"
+    },
+    "Publish!speed": {
+      "topicName": "/athena/teleop/max_speed",
+      "datatype": "std_msgs/msg/Float32",
+      "buttonText": "Set top speed (m/s)",
+      "buttonTooltip": "",
+      "advancedView": true,
+      "value": "{\n  \"data\": 0.35\n}"
+    },
+    "Publish!goal": {
+      "topicName": "/athena/goal_text",
+      "datatype": "std_msgs/msg/String",
+      "buttonText": "Go to this coordinate",
+      "buttonTooltip": "",
+      "advancedView": true,
+      "value": "{\n  \"data\": \"25.2629548, 82.9838284\"\n}"
+    },
+    "RawMessages!teleop": {
+      "topicPath": "/athena/teleop/status.data",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all",
+      "fontSize": 13,
+      "defaultExpanded": false
+    },
+    "RawMessages!gps": {
+      "topicPath": "/gps/fix.status.status",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all",
+      "fontSize": 13,
+      "defaultExpanded": false
+    },
+    "RawMessages!places": {
+      "topicPath": "/athena/waypoint_list.data",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all",
+      "fontSize": 13,
+      "defaultExpanded": false
+    },
+    "3D!main": {
+      "cameraState": {
+        "distance": 18,
+        "perspective": true,
+        "phi": 50,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.05,
+        "far": 5000
+      },
+      "followMode": "follow-position",
+      "followTf": "odom",
+      "scene": {
+        "enableStats": false,
+        "backgroundColor": "#0e1116",
+        "transforms": {
+          "showLabel": false,
+          "editable": false,
+          "axisSize": 0
+        }
+      },
+      "transforms": {
+        "frame:map": {
+          "visible": false
+        },
+        "frame:odom": {
+          "visible": false
+        },
+        "frame:base_link": {
+          "visible": false
+        },
+        "frame:base_footprint": {
+          "visible": false
+        },
+        "frame:camera_link": {
+          "visible": false
+        },
+        "frame:gps_link": {
+          "visible": false
+        },
+        "frame:imu_link": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/local_costmap/costmap": {
+          "visible": true,
+          "colorMode": "costmap",
+          "frameLocked": false,
+          "alpha": 0.55
+        },
+        "/global_costmap/costmap": {
+          "visible": false,
+          "colorMode": "costmap",
+          "alpha": 0.35
+        },
+        "/athena/points_preview": {
+          "visible": true,
+          "pointSize": 2.5,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "decayTime": 0
+        },
+        "/plan": {
+          "visible": true,
+          "lineWidth": 0.14,
+          "gradient": [
+            "#ff9f43",
+            "#ff9f43"
+          ]
+        },
+        "/athena/trajectory": {
+          "visible": true,
+          "lineWidth": 0.1,
+          "gradient": [
+            "#48dbfb",
+            "#48dbfb"
+          ]
+        },
+        "/athena/waypoints": {
+          "visible": true
+        },
+        "/athena/goal_marker": {
+          "visible": true
+        },
+        "/odometry/local": {
+          "visible": true,
+          "type": "arrow",
+          "arrowScale": [
+            0.8,
+            0.14,
+            0.14
+          ],
+          "color": "#ffffff"
+        },
+        "/odometry/global": {
+          "visible": false,
+          "type": "arrow"
+        },
+        "/local_costmap/published_footprint": {
+          "visible": true,
+          "lineWidth": 0.05,
+          "color": "#48dbfb"
+        }
+      },
+      "layers": {
+        "grid": {
+          "layerId": "foxglove.Grid",
+          "size": 40,
+          "divisions": 40,
+          "color": "#1b242c",
+          "frameId": "odom",
+          "visible": true,
+          "position": [
+            0,
+            0,
+            -0.01
+          ],
+          "label": "ground",
+          "order": 1
+        },
+        "urdf": {
+          "layerId": "foxglove.Urdf",
+          "sourceType": "topic",
+          "topic": "/robot_description",
+          "framePrefix": "",
+          "visible": true,
+          "label": "Athena",
+          "order": 2
+        }
+      },
+      "publish": {
+        "type": "pose",
+        "poseTopic": "/athena/goal_click",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26
+      },
+      "synchronize": false,
+      "imageMode": {}
+    },
+    "map!gps": {
+      "center": {
+        "lat": 25.2628,
+        "lon": 82.9839
+      },
+      "zoomLevel": 18,
+      "layer": "custom",
+      "customTileUrl": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+      "followTopic": "/gps/fix",
+      "topicColors": {
+        "/gps/fix": "#48dbfb",
+        "/athena/trajectory_geojson": "#48dbfb",
+        "/athena/waypoints_geojson": "#feca57"
+      },
+      "disabledTopics": [],
+      "maxNativeZoom": 20
+    },
+    "Image!cam": {
+      "cameraTopic": "/athena/camera/compressed",
+      "calibrationTopic": "/camera/camera/color/camera_info",
+      "transformMarkers": false,
+      "synchronize": false,
+      "smooth": true,
+      "flipHorizontal": false,
+      "flipVertical": false,
+      "rotation": 0,
+      "minValue": 0,
+      "maxValue": 1,
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 60,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/athena/camera/compressed",
+        "calibrationTopic": "/camera/camera/color/camera_info"
+      }
+    },
+    "Teleop!drive": {
+      "topic": "/athena/teleop/cmd_vel",
+      "publishRate": 15,
+      "upButton": {
+        "field": "linear-x",
+        "value": 1
+      },
+      "downButton": {
+        "field": "linear-x",
+        "value": -1
+      },
+      "leftButton": {
+        "field": "angular-z",
+        "value": 1
+      },
+      "rightButton": {
+        "field": "angular-z",
+        "value": -1
+      },
+      "autoSendStopOnRelease": false,
+      "stopButton": {
+        "field": "linear-x",
+        "value": 0
+      }
+    },
+    "Tab!status": {
+      "activeTabIdx": 1,
+      "tabs": [
+        {
+          "title": "Speed",
+          "layout": "Plot!vel"
+        },
+        {
+          "title": "Goal",
+          "layout": {
+            "first": {
+              "first": "RawMessages!navstatus",
+              "second": "RawMessages!goal",
+              "direction": "column",
+              "splitPercentage": 55
+            },
+            "second": "Tab!controls",
+            "direction": "row"
+          }
+        },
+        {
+          "title": "Teleop",
+          "layout": "RawMessages!teleop"
+        },
+        {
+          "title": "GPS fix",
+          "layout": "RawMessages!gps"
+        },
+        {
+          "title": "Saved places",
+          "layout": "RawMessages!places"
+        },
+        {
+          "title": "Log",
+          "layout": "RosOut!log"
+        },
+        {
+          "title": "Goal pose",
+          "layout": "RawMessages!goalpose"
+        },
+        {
+          "title": "Nav feedback",
+          "layout": "RawMessages!navfb"
+        }
+      ]
+    },
+    "RosOut!log": {
+      "searchTerms": [],
+      "topicToRender": "/rosout"
+    },
+    "RawMessages!goalpose": {
+      "topicPath": "/goal_pose",
+      "expansion": "all",
+      "fontSize": 13
+    },
+    "RawMessages!navfb": {
+      "topicPath": "/navigate_to_pose/_action/feedback.feedback",
+      "expansion": "all",
+      "fontSize": 13
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "direction": "row",
+      "first": "3D!main",
+      "second": {
+        "direction": "column",
+        "first": "map!gps",
+        "second": {
+          "first": "Image!cam",
+          "second": "Teleop!drive",
+          "direction": "row"
+        },
+        "splitPercentage": 58.03357314148682
+      },
+      "splitPercentage": 65.27741713266838
+    },
+    "second": "Tab!status",
+    "direction": "column",
+    "splitPercentage": 67.0617579247895
+  }
+}
