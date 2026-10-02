@@ -1,0 +1,36 @@
+# ---- colcon build output -------------------------------------------------
+# These live at the workspace root (~/athena), but they reappear inside
+# packages whenever someone runs colcon from the wrong directory. Ignore
+# both spellings so a misplaced build never lands in a commit.
+build/
+install/
+log/
+*/build/
+*/install/
+*/log/
+
+# ---- python --------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+
+# ---- editors -------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# ---- run artefacts -------------------------------------------------------
+# Bags and diagnostic dumps are large and specific to one run.
+*.bag
+*.db3
+*.mcap
+rosbag2_*/
+loc_reports*/
+
+# Saved waypoints and portal credentials belong in ~/.config, not in git.
+waypoints.yaml
+portal.yaml

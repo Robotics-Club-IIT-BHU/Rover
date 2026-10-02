@@ -1,4 +1,14 @@
 # Rover
+
+**Athena rover stack (ROS 2 Humble, Jetson):** start at [src/README.md](src/README.md).
+It covers bringing the rover up, the Foxglove control panel, motor calibration and
+the Pico pin map, with architecture in [src/docs/ARCHITECTURE.md](src/docs/ARCHITECTURE.md)
+and contribution rules in [src/CONTRIBUTING.md](src/CONTRIBUTING.md).
+Packages: `athena_gps_nav` (sensors, localization, Nav2), `athena_drive` (motors,
+calibration, Pico firmware), `athena_remote` (Foxglove panel, goals, remote access).
+
+The sections below are the earlier simulation notes.
+
 ## Drive:
 Clone the src file and build the package
 then run using : ros2 launch drive sim.launch.py
