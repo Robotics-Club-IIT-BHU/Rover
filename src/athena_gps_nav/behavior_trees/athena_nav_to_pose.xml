@@ -1,0 +1,85 @@
+<!--
+  Athena's navigate-to-pose tree.
+
+  This is Nav2's stock navigate_to_pose_w_replanning_and_recovery.xml with
+  two recovery behaviours removed, Spin and BackUp, and the remaining
+  recoveries reordered so the cheapest one runs first and the obstacle
+  memory is thrown away last.
+
+  Why no Spin or BackUp. The stock recoveries assume a robot that can see
+  where it is about to move. Athena cannot. The D435i covers 87 degrees ahead
+  and there is no rear-facing sensor at all, so:
+
+    Spin 1.57 rad   rotates the rover through 273 degrees it cannot see,
+                    using costmap cells that were last observed some time
+                    ago and, with VIO at 2 to 4 Hz indoors, were written
+                    with a heading that was already stale.
+    BackUp 0.30 m   reverses a 1.3 m rover into space it has NEVER observed.
+                    There is no sensor pointing that way. It is not a
+                    cautious move, it is a blind one.
+
+  Why the global costmap is no longer wiped on the first planning failure
+  (2026-10-02). The stock tree clears the whole global costmap whenever one
+  ComputePathToPose fails. The global costmap is the only memory this rover
+  has of what is beside and behind it, and a single front camera cannot
+  rebuild that memory without turning. In the logs every planning failure was
+  one of three things, and wiping helped none of them:
+    - the goal's TF stamp had expired (clicked goals in odom or base_link),
+      which no costmap change can fix;
+    - the planner did not acknowledge the goal within default_server_timeout
+      because the Jetson was overloaded, which waiting fixes;
+    - the goal or the route really was blocked, where wiping makes the planner
+      route straight through the obstacle it just forgot (unknown space is
+      plannable), the rover drives back into it, and the loop repeats.
+  So a failed plan now waits 1 s and tries again.
+
+  Recovery order, once the main branch has failed (each round re-tries the
+  main branch first, up to 6 rounds, then the goal fails and control goes
+  back to the operator):
+    1. Wait 5 s           free: people move, a CPU spike passes, the camera
+                          and VIO catch up.
+    2. Clear local        removes stale cells around the rover, the usual
+                          cause of "collision ahead" that is not real, while
+                          the global costmap keeps the side and rear memory
+                          the planner routes around.
+    3. Clear both         last resort for residue blocking the route.
+  FollowPath's own context recovery (clear the local costmap once) is
+  unchanged: in the 2026-10-02 logs it is what let the rover drive on after
+  each "collision ahead".
+
+  Node names are what nav_status reads from /behavior_tree_log; keep
+  "RecoveryActions" and the Recovery* names if you edit this.
+
+  The Spin and BackUp plugins are still loaded by behavior_server and still
+  listed in plugin_lib_names, so switching back to the stock tree is just a
+  matter of clearing default_nav_to_pose_bt_xml in nav2_params.yaml.
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <RateController hz="1.0">
+          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+            <Wait name="PlanRetryWait" wait_duration="1"/>
+          </RecoveryNode>
+        </RateController>
+        <RecoveryNode number_of_retries="1" name="FollowPath">
+          <FollowPath path="{path}" controller_id="FollowPath"/>
+          <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
+        </RecoveryNode>
+      </PipelineSequence>
+      <ReactiveFallback name="RecoveryFallback">
+        <GoalUpdated/>
+        <RoundRobin name="RecoveryActions">
+          <Wait name="RecoveryWait" wait_duration="5"/>
+          <ClearEntireCostmap name="RecoveryClearLocal" service_name="local_costmap/clear_entirely_local_costmap"/>
+          <Sequence name="RecoveryClearAll">
+            <ClearEntireCostmap name="ClearLocalCostmap-Subtree" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
+          </Sequence>
+        </RoundRobin>
+      </ReactiveFallback>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

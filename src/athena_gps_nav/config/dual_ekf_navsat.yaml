@@ -1,0 +1,218 @@
+# ============================================================================
+# Dual-EKF + navsat_transform configuration for the Athena rover
+# (robot_localization 3.5.x, ROS 2 Humble)
+#
+# Sensor inputs:
+#   /vio/odometry  rtabmap rgbd_odometry (D435i)   -> fuse BODY VELOCITIES
+#   /imu/data      Pixhawk (ENU-converted, has absolute compass yaw)
+#   /odometry/gps  navsat_transform output          -> fuse absolute x/y (map EKF)
+#
+# Design notes (from robot_localization docs + Nav2 GPS tutorial):
+#  * VIO is fused as velocities (vx, vy, vyaw), never as pose: VO drift then
+#    integrates in the filter instead of fighting the GPS, and VO auto-resets
+#    (Odom/ResetCountdown) cause no pose jumps.
+#  * The Pixhawk yaw is the ONLY absolute heading source (D435i has no mag).
+#    If compass yaw proves unreliable near the motors, set
+#    imu0_differential: true in BOTH filters and set
+#    navsat_transform use_odometry_yaw: false -> heading then converges from
+#    GPS + motion (needs some driving before it is correct).
+#  * two_d_mode everywhere: this is a ground rover.
+# ============================================================================
+
+ekf_local:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: true
+    transform_time_offset: 0.0
+    transform_timeout: 0.0
+    print_diagnostics: true
+    publish_tf: true            # owns odom -> base_link
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+
+    # --- VIO: velocities only ---
+    odom0: /vio/odometry
+    odom0_config: [false, false, false,     # x y z
+                   false, false, false,     # roll pitch yaw
+                   true,  true,  false,     # vx vy vz
+                   false, false, true,      # vroll vpitch vyaw
+                   false, false, false]     # ax ay az
+    odom0_queue_size: 10
+    odom0_nodelay: true
+    odom0_differential: false
+    odom0_relative: false
+    # NOTE: no odom0_twist_rejection_threshold here.  A Mahalanobis gate
+    # self-locks: one accepted spike drives the state away, then all the
+    # honest measurements look like outliers and get rejected forever
+    # (observed on the bench: 1.7 m/s phantom runaway).  Physical outlier
+    # rejection lives in the vio_gate node instead.
+
+    # --- Pixhawk IMU: yaw RATE only in the local filter ---
+    # Absolute compass yaw is fused only in the global EKF: at 48 Hz the
+    # absolute-yaw corrections cross-couple into the velocity states and
+    # measurably pump position jitter (bench: EKF vx noise 2-3x the VIO
+    # measurement noise until this was removed).  The odom frame is
+    # allowed to have slowly drifting yaw per REP-105.
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,       # vyaw
+                  false, false, false]      # accels off: vibration noise
+    imu0_queue_size: 20
+    imu0_nodelay: true
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    use_control: false
+    # Scale process noise with velocity: keeps the estimate pinned when the
+    # rover is stationary (kills stationary drift).
+    dynamic_process_noise_covariance: true
+
+    # Q diagonal (x y z r p y | vx vy vz vr vp vy | ax ay az)
+    process_noise_covariance: [1.0e-3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 1.0e-3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 1.0e-3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3]
+
+ekf_global:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: true
+    print_diagnostics: true
+    publish_tf: true            # owns map -> odom
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: map
+
+    # --- VIO velocities (same as local) ---
+    odom0: /vio/odometry
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+    odom0_queue_size: 10
+    odom0_nodelay: true
+    odom0_differential: false
+    odom0_relative: false
+    # NOTE: no odom0_twist_rejection_threshold here.  A Mahalanobis gate
+    # self-locks: one accepted spike drives the state away, then all the
+    # honest measurements look like outliers and get rejected forever
+    # (observed on the bench: 1.7 m/s phantom runaway).  Physical outlier
+    # rejection lives in the vio_gate node instead.
+
+    # --- GPS as absolute x/y (from navsat_transform) ---
+    odom1: /odometry/gps
+    odom1_config: [true,  true,  false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    odom1_queue_size: 10
+    odom1_nodelay: true
+    odom1_differential: false
+    odom1_relative: false
+
+    # --- Pixhawk IMU: yaw RATE only (absolute yaw DISABLED 2026-09-02) ---
+    # Absolute yaw (index 5) used to be fused here, which anchored the whole
+    # map frame's rotation to the Pixhawk's compass.  That compass is not
+    # trustworthy: with the rover sitting flat its attitude quaternion decodes
+    # to roll -22.3 deg / pitch -15.4 deg, and the values are inconsistent
+    # between sessions (27.5 deg on 2026-08-30, -21/-17 on 2026-08-31).  The
+    # result was a permanent map->odom yaw of +89 deg while the rover was NOT
+    # pointing north, so any goal given in absolute map coordinates was aimed
+    # ~90 deg away from where the operator meant.
+    #
+    # The GYRO is fine - a rate gyro's output does not depend on the broken
+    # attitude solution - so vyaw (index 11) stays.  That is all ekf_local
+    # needs, and it is what keeps the EKF at ~25-30 Hz instead of 7-8 Hz.
+    #
+    # Consequence: map yaw is now dead-reckoned, i.e. map ~= odom in rotation.
+    # Correct for local/odom-frame goals, which is what we are flying today.
+    # BEFORE GPS WAYPOINT WORK this needs a real heading source again - either
+    # re-enable index 5 against a calibrated compass, or (better) a
+    # dual-antenna RTK heading.  navsat_transform's use_odometry_yaw is still
+    # false, so it also still reads /imu/data yaw for the datum heading; fix
+    # both together when the new autopilot/RTK unit lands.
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
+    imu0_queue_size: 20
+    imu0_nodelay: true
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    use_control: false
+    dynamic_process_noise_covariance: true
+
+    # x/y process noise higher here: the map frame is allowed to jump toward
+    # GPS; the smoothness lives in the odom frame.
+    process_noise_covariance: [0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 1.0e-3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3]
+
+navsat_transform:
+  ros__parameters:
+    frequency: 10.0
+    # Seconds to wait before latching the datum (map origin) from the first
+    # fix.  3.0 was far too short: a receiver that has just booted is still
+    # converging, and a datum taken from that first poor fix leaves the map
+    # origin tens of metres off.  Measured 2026-08-26: with delay 3.0 the
+    # datum landed ~110 m from where the settled solution sat, and the
+    # global EKF then spent minutes crawling toward it.
+    # 45 s lets the solution settle first.  For a REPEATABLE origin across
+    # runs -- which is what you want once you are following recorded
+    # waypoints -- do not rely on this at all: set wait_for_datum: true and
+    # an explicit datum: [lat, lon, 0.0] below.
+    delay: 45.0
+    # Site (IIT-BHU area, lat 25.26 / lon 82.98): declination ~0.3 deg W,
+    # negligible vs compass error.  ArduPilot/PX4 already apply declination
+    # to their fused yaw, so leave this at 0 unless heading is consistently
+    # rotated -> then set your NOAA declination here (radians, East positive).
+    magnetic_declination_radians: 0.0
+    # pixhawk_bridge already converts yaw to ENU (0 = East), so no offset.
+    yaw_offset: 0.0
+    zero_altitude: true
+    broadcast_cartesian_transform: false
+    publish_filtered_gps: true
+    use_odometry_yaw: false
+    # Datum auto-initializes from the first good fix + IMU yaw.  For a fixed,
+    # repeatable map origin set wait_for_datum: true and add e.g.
+    #   datum: [25.2629548, 82.9838284, 0.0]
+    wait_for_datum: false

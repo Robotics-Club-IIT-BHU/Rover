@@ -1,0 +1,7 @@
+# Example GPS waypoints for gps_waypoint_follower.
+# yaw is optional (radians, ENU: 0 = East, CCW positive).
+# Record real ones with:  ros2 run athena_gps_nav gps_waypoint_logger
+waypoints:
+  - {latitude: 25.2629548, longitude: 82.9838284}
+  - {latitude: 25.2629321, longitude: 82.9838343}
+  - {latitude: 25.2629154, longitude: 82.9838284}
