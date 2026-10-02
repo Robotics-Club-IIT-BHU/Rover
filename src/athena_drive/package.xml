@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>athena_drive</name>
+  <version>1.0.0</version>
+  <description>
+    Motor drive for the Athena rover: /cmd_vel to a Raspberry Pi Pico
+    running variable-speed 6-motor firmware, plus wiring verification,
+    speed calibration and keyboard teleop.
+  </description>
+  <maintainer email="thomas.j.chackenkulam295@gmail.com">Jashan</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <exec_depend>python3-serial</exec_depend>
+
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

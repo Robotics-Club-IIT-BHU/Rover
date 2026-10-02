@@ -5,17 +5,17 @@ GPS coordinate, or click a point, and it drives there, steering around
 obstacles it sees. A Pixhawk supplies IMU and GPS, a RealSense D435i supplies
 obstacles and visual odometry, and a Raspberry Pi Pico drives the six motors.
 
-This page is **how to run it**. How it is built: [docs/ARCHITECTURE.md](src/docs/ARCHITECTURE.md).
+This page is **how to run it**. How it is built: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | I want to | Read |
 |---|---|
-| Understand the packages, data flow, frames, design decisions | [docs/ARCHITECTURE.md](src/docs/ARCHITECTURE.md) |
-| Run, tune, test or fix navigation | [athena_gps_nav/README.md](src/athena_gps_nav/README.md) |
-| Wire (pin map), calibrate, flash or debug the motors | [athena_drive/README.md](src/athena_drive/README.md) |
-| SSH in, get through WiFi login, use `rviz2` from a laptop | [athena_remote/README.md](src/athena_remote/README.md) |
-| Every Foxglove panel, goal, waypoint and troubleshooting step | [athena_remote/docs/FOXGLOVE_PANEL.md](src/athena_remote/docs/FOXGLOVE_PANEL.md) |
-| Test navigation from the Foxglove panel | [athena_remote/TESTING.md](src/athena_remote/TESTING.md) |
-| Change code, build, use git | [CONTRIBUTING.md](src/CONTRIBUTING.md) |
+| Understand the packages, data flow, frames, design decisions | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Run, tune, test or fix navigation | [athena_gps_nav/README.md](athena_gps_nav/README.md) |
+| Wire (pin map), calibrate, flash or debug the motors | [athena_drive/README.md](athena_drive/README.md) |
+| SSH in, get through WiFi login, use `rviz2` from a laptop | [athena_remote/README.md](athena_remote/README.md) |
+| Every Foxglove panel, goal, waypoint and troubleshooting step | [athena_remote/docs/FOXGLOVE_PANEL.md](athena_remote/docs/FOXGLOVE_PANEL.md) |
+| Test navigation from the Foxglove panel | [athena_remote/TESTING.md](athena_remote/TESTING.md) |
+| Change code, build, use git | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Contents
 
@@ -43,12 +43,12 @@ ssh robo@172.20.119.87
 Jetson, `hostname -I` prints it; from another machine on the same WiFi,
 `ssh robo@ubuntu.local` usually works. Finding it by scanning, and a host alias
 that also opens the Foxglove tunnel:
-[athena_remote](src/athena_remote/README.md#getting-a-shell-on-the-jetson).
+[athena_remote](athena_remote/README.md#getting-a-shell-on-the-jetson).
 
 `~/.bashrc` on the Jetson sources ROS and the workspace and sets
 `ROS_DOMAIN_ID=42`. A shell that skips it (`ssh host 'command'`, cron) is on
 domain 0 and sees an empty graph:
-[fix](src/athena_remote/README.md#getting-a-shell-on-the-jetson).
+[fix](athena_remote/README.md#getting-a-shell-on-the-jetson).
 
 ### Log in to the institute WiFi
 
@@ -109,7 +109,7 @@ Keep the `. /opt/ros/humble/setup.sh` part: without it the cron job fails
 silently. Logged in but still no internet (`apt`, `git` fail): check
 [the clock](#correcting-the-clock). If the automatic login fails (JavaScript login
 pages, changing tokens):
-[CAPTIVE_PORTAL.md](src/athena_remote/docs/CAPTIVE_PORTAL.md).
+[CAPTIVE_PORTAL.md](athena_remote/docs/CAPTIVE_PORTAL.md).
 
 ## 2. Bring the rover up
 
@@ -160,12 +160,12 @@ dead-reckons the same visual odometry and gyro that `ekf_local` already uses:
 two independent filters on identical inputs, whose estimates slowly diverge for
 no reason. That divergence *is* the `map -> odom` drift, and indoors it buys
 nothing. Delete the second filter and the drift cannot happen
-([more](src/docs/ARCHITECTURE.md#key-design-decisions)).
+([more](docs/ARCHITECTURE.md#key-design-decisions)).
 
 ### Running one layer at a time
 
 For debugging; `bringup.launch.py` is all of these together. Full list and
-arguments: [athena_gps_nav](src/athena_gps_nav/README.md#run).
+arguments: [athena_gps_nav](athena_gps_nav/README.md#run).
 
 | Launch file | Starts |
 |---|---|
@@ -223,7 +223,7 @@ That single failure is expected without a GPS fix. Failures that are **not** fau
   idle `/cmd_vel` is the correct state with no goal running.
 
 How to read the rest, and the hands-on tests:
-[TESTING.md](src/athena_gps_nav/docs/TESTING.md#health-check).
+[TESTING.md](athena_gps_nav/docs/TESTING.md#health-check).
 
 ## 4. Connect Foxglove (the control panel)
 
@@ -333,7 +333,7 @@ Then in Foxglove: **Layout menu (top right) -> Import from file** ->
 | Readouts | tabs *Goal* (with the *Nav status* line: why the last goal ended), *Speed*, *Teleop*, *GPS fix*, *Saved places*, *Log*, *Goal pose*, *Nav feedback* |
 
 What every marker in the 3D view means, and the Controls tabs one by one:
-[FOXGLOVE_PANEL.md](src/athena_remote/docs/FOXGLOVE_PANEL.md#what-each-panel-shows).
+[FOXGLOVE_PANEL.md](athena_remote/docs/FOXGLOVE_PANEL.md#what-each-panel-shows).
 
 ### Adding or rebuilding panels by hand
 
@@ -360,12 +360,12 @@ above are what matters.
 | Refused instantly, HTTP 400, nothing in the bridge log | Foxglove too old (see above). Update it |
 | `ConnectionRefusedError` / nothing on 8765 | bridge not running: bringup has not reached 15 s, or it was launched with `foxglove:=false` |
 | Connects, panels blank | wrong layout or topics: re-import the layout; check the topic names above |
-| Map blank, model missing, camera blank, teleop does nothing, no path lines | [troubleshooting table](src/athena_remote/docs/FOXGLOVE_PANEL.md#troubleshooting) |
+| Map blank, model missing, camera blank, teleop does nothing, no path lines | [troubleshooting table](athena_remote/docs/FOXGLOVE_PANEL.md#troubleshooting) |
 | Still laggy on a slow link | send less: lower the defaults of `camera_rate`, `camera_width` (e.g. 424) and `cloud_rate` in `athena_remote/launch/foxglove.launch.py`, then relaunch. Raw everything, on a fast wired LAN only: `topic_whitelist:="['.*']"` |
 | Camera panel blank | the Image panel must use `/athena/camera/compressed`: re-import the layout (copy it over again first, it changed on 2026-10-02) |
 
 Test the bridge itself from the Jetson, and the full table:
-[FOXGLOVE_PANEL.md](src/athena_remote/docs/FOXGLOVE_PANEL.md#setup).
+[FOXGLOVE_PANEL.md](athena_remote/docs/FOXGLOVE_PANEL.md#setup).
 
 ## 5. Send it somewhere
 
@@ -390,7 +390,7 @@ readout tab (the same line appears in the bringup terminal from `nav_status`). I
 names the reason, for example `FAILED ...: blocked: lethal costmap cells in the
 rover's path and no detour found`, `goal is outside the planner's 100 x 100 m
 window`, or `rover did not move 0.3 m in 30 s`, and says what to do. Every reason
-it can give: [FOXGLOVE_PANEL.md](src/athena_remote/docs/FOXGLOVE_PANEL.md).
+it can give: [FOXGLOVE_PANEL.md](athena_remote/docs/FOXGLOVE_PANEL.md).
 
 **Cancel a goal:** send `{ "data": "cancel" }` on the *Go to* topic, or nudge a
 teleop arrow. The teleop STOP button does **not** cancel a goal.
@@ -403,12 +403,12 @@ map-only ones last until the next restart, because the map origin moves when the
 datum is re-locked.
 
 **Record and follow a GPS route** from a terminal, no panel:
-[athena_gps_nav](src/athena_gps_nav/README.md#send-it-somewhere). Not ready for
+[athena_gps_nav](athena_gps_nav/README.md#send-it-somewhere). Not ready for
 unattended use: absolute heading is not fused
-([why](src/athena_gps_nav/docs/TUNING.md#heading-the-compass-is-not-used)).
+([why](athena_gps_nav/docs/TUNING.md#heading-the-compass-is-not-used)).
 
 The same actions as `ros2 topic pub`, and every topic:
-[TOPICS.md](src/athena_remote/docs/TOPICS.md).
+[TOPICS.md](athena_remote/docs/TOPICS.md).
 
 ## 6. Everyday commands
 
@@ -419,13 +419,13 @@ The same actions as `ros2 topic pub`, and every topic:
 | Open the panel | `ssh -N -L 8765:localhost:8765 robo@172.20.119.87`, then Foxglove -> `ws://localhost:8765` (section 4) |
 | Cancel a goal from a terminal | `ros2 topic pub --once /athena/goal_text std_msgs/String '{data: "cancel"}'` |
 | See what the controller asks for | `ros2 topic echo /cmd_vel_nav` (`/cmd_vel` has six publishers) |
-| Open RViz | `rviz2 -d ~/athena/src/athena_gps_nav/config/athena_bench.rviz`: [setup](src/athena_gps_nav/docs/TESTING.md#rviz) |
-| Test or calibrate the motors | `ros2 run athena_drive calibrate` (a menu). **Stop the stack first** (the Pico's port is exclusive); wheels off the ground: [guide](src/athena_drive/README.md#calibration) |
-| Check how the sensors are mounted | `python3 ~/athena/indoor_test/mount_check.py camera` (also `costmap`, `yaw`, `watch`): [guide](src/athena_gps_nav/docs/TESTING.md#camera-mount) |
-| Find out why GPS has no fix | stop bringup, then `ros2 run athena_gps_nav gps_diagnose`: [guide](src/athena_gps_nav/docs/TROUBLESHOOTING.md#gps-has-no-fix) |
-| Run ROS commands over SSH with no panel | [athena_remote, Option B](src/athena_remote/README.md#which-way-in) |
-| Use a native `rviz2` / `ros2` on a laptop | [athena_remote, Option C](src/athena_remote/README.md#which-way-in) |
-| Get the Jetson through campus WiFi login | `w3m http://connectivitycheck.gstatic.com/generate_204`, or [captive_login](src/athena_remote/docs/CAPTIVE_PORTAL.md) |
+| Open RViz | `rviz2 -d ~/athena/src/athena_gps_nav/config/athena_bench.rviz`: [setup](athena_gps_nav/docs/TESTING.md#rviz) |
+| Test or calibrate the motors | `ros2 run athena_drive calibrate` (a menu). **Stop the stack first** (the Pico's port is exclusive); wheels off the ground: [guide](athena_drive/README.md#calibration) |
+| Check how the sensors are mounted | `python3 ~/athena/indoor_test/mount_check.py camera` (also `costmap`, `yaw`, `watch`): [guide](athena_gps_nav/docs/TESTING.md#camera-mount) |
+| Find out why GPS has no fix | stop bringup, then `ros2 run athena_gps_nav gps_diagnose`: [guide](athena_gps_nav/docs/TROUBLESHOOTING.md#gps-has-no-fix) |
+| Run ROS commands over SSH with no panel | [athena_remote, Option B](athena_remote/README.md#which-way-in) |
+| Use a native `rviz2` / `ros2` on a laptop | [athena_remote, Option C](athena_remote/README.md#which-way-in) |
+| Get the Jetson through campus WiFi login | `w3m http://connectivitycheck.gstatic.com/generate_204`, or [captive_login](athena_remote/docs/CAPTIVE_PORTAL.md) |
 
 ### Correcting the clock
 
@@ -448,14 +448,14 @@ Restart the stack after any manual clock change: nodes cache timestamps.
 |---|---|---|
 | RealSense D435i | USB 3 | camera driver |
 | Pixhawk PX4 FMU v2 | USB serial, MAVLink **921600** baud (`/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00`) | `pixhawk_bridge` |
-| Raspberry Pi Pico W | USB serial, 115200 baud (`/dev/serial/by-id/usb-Raspberry_Pi_Pico*`) | `motor_bridge`; firmware in [athena_drive](src/athena_drive/docs/FIRMWARE.md) |
+| Raspberry Pi Pico W | USB serial, 115200 baud (`/dev/serial/by-id/usb-Raspberry_Pi_Pico*`) | `motor_bridge`; firmware in [athena_drive](athena_drive/docs/FIRMWARE.md) |
 
 - **Motor wiring and the Pico pin map** (which GPIO goes to which driver channel,
-  with a wiring diagram): [athena_drive/README.md](src/athena_drive/README.md#pico-to-motor-driver-pin-map).
+  with a wiring diagram): [athena_drive/README.md](athena_drive/README.md#pico-to-motor-driver-pin-map).
 - Always address serial devices by `/dev/serial/by-id/...`. The `ttyACM*` numbers
   swap between boots, and the Pixhawk and the Pico have each held `ttyACM0`.
   **Never launch the old `drive` package**: it hardcodes `/dev/ttyACM1`, which can
-  be the Pixhawk ([drive/README.md](src/drive/README.md)).
+  be the Pixhawk ([drive/README.md](drive/README.md)).
 - The Pico's serial port has one owner. `motor_bridge`, `calibrate`, `wiring_check`
   and `calibrate_speed` all open it, and bringup already starts a bridge. Check
   with `fuser -v /dev/ttyACM*`.
@@ -471,10 +471,10 @@ Restart the stack after any manual clock change: nodes cache timestamps.
   antenna / RF path is suspected. `/gps/fix` still carries a lat/lon with
   `status: -1`, which is not a fix. Everything except GPS-referenced navigation
   works: use `local_only:=true` and click goals. Diagnosis:
-  [TROUBLESHOOTING.md](src/athena_gps_nav/docs/TROUBLESHOOTING.md#gps-has-no-fix).
+  [TROUBLESHOOTING.md](athena_gps_nav/docs/TROUBLESHOOTING.md#gps-has-no-fix).
 - **GPS waypoint following is not ready:** it also needs an absolute heading source
   (absolute yaw is not fused), see
-  [TUNING.md](src/athena_gps_nav/docs/TUNING.md#heading-the-compass-is-not-used).
+  [TUNING.md](athena_gps_nav/docs/TUNING.md#heading-the-compass-is-not-used).
 - **Motor calibration is half done.** `~/.config/athena_drive/params.yaml` holds
   `min_pwm: 20` and `track_width: 0.85` (measured), but not `max_wheel_speed` or
   `max_pwm`, so `motor_bridge` falls back to 0.7 m/s and 255 and logs
@@ -484,13 +484,13 @@ Restart the stack after any manual clock change: nodes cache timestamps.
   `ros2 run athena_drive calibrate --ros-args -p stages:=4`.
 - **The Pico has not been reflashed with the `G` command**, so `calibrate` runs
   multi-motor tests one motor at a time
-  ([FIRMWARE.md](src/athena_drive/docs/FIRMWARE.md#flashing)).
+  ([FIRMWARE.md](athena_drive/docs/FIRMWARE.md#flashing)).
 - **Recovery is deliberately reduced:** no Spin or BackUp, so a goal Nav2 cannot
   rescue fails cleanly and hands control back to the operator
-  ([why](src/athena_gps_nav/docs/TUNING.md#recovery-behaviour)).
+  ([why](athena_gps_nav/docs/TUNING.md#recovery-behaviour)).
 
 ## Contributors
 
 - **Jashan**: GPS navigation stack, drive package, remote access and control panel
 
-Add your name here when you contribute. See [CONTRIBUTING.md](src/CONTRIBUTING.md).
+Add your name here when you contribute. See [CONTRIBUTING.md](CONTRIBUTING.md).

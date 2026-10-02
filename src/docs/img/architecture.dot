@@ -1,0 +1,105 @@
+// Athena data flow, top to bottom: sensors -> localization -> Nav2 -> motor_bridge -> Pico.
+// Render:  dot -Tpng -Gdpi=100 architecture.dot -o architecture.png
+// Facts come from bringup.launch.py and the launch files it includes,
+// config/dual_ekf_navsat.yaml, config/nav2_params.yaml and
+// athena_remote/launch/foxglove.launch.py. Keep them in step.
+digraph athena {
+  rankdir=TB;
+  compound=true;
+  nodesep=0.35;
+  ranksep=0.45;
+  fontname="DejaVu Sans";
+  node [fontname="DejaVu Sans", fontsize=11, shape=box, style="rounded,filled",
+        fillcolor="#ffffff", color="#555555", margin="0.14,0.07"];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#444444", arrowsize=0.7];
+
+  // ------------------------------------------------------------- sensors
+  subgraph cluster_in {
+    label="Sensors"; style="rounded,filled"; fillcolor="#eeeeee"; color="#999999"; fontsize=12;
+    {rank=same; px; rs;}
+    px [label="Pixhawk\nIMU + GPS\nMAVLink, 921600 baud"];
+    rs [label="RealSense D435i\ncolour + depth, 15 fps"];
+  }
+
+  // ------------------------------------------------------------- athena_gps_nav
+  subgraph cluster_nav {
+    label="athena_gps_nav"; style="rounded,filled"; fillcolor="#e8f1fb"; color="#4a7bb5"; fontsize=12;
+
+    {rank=same; pb; ds; vo;}
+    {rank=same; ns; gate;}
+    {rank=same; el; eg;}
+    pb   [label="pixhawk_bridge\nNED to ENU, honest covariance"];
+    ds   [label="pointcloud_downsampler\nkeep 1 point in 8, 0.25 to 3.5 m"];
+    vo   [label="rtabmap rgbd_odometry\nvisual odometry"];
+    gate [label="vio_gate\nrejects impossible motion,\nzero-velocity update"];
+    ns   [label="navsat_transform\nlat/lon to map metres"];
+    el   [label="ekf_local\nodom -> base_link\n(smooth, never sees GPS)"];
+    eg   [label="ekf_global\nmap -> odom\n(adds GPS, may jump)"];
+
+    subgraph cluster_nav2 {
+      label="Nav2  (own behaviour tree: no Spin, no BackUp)"; style="rounded,filled";
+      fillcolor="#d6e6f7"; color="#4a7bb5"; fontsize=11;
+      {rank=same; gc; lc;}
+      gc [label="global costmap\n100 x 100 m, map frame\nNavFn planner"];
+      lc [label="local costmap\n8 x 8 m, odom frame\nRegulated Pure Pursuit"];
+      vs [label="velocity_smoother"];
+    }
+  }
+
+  cmd [label="/cmd_vel", shape=ellipse, fillcolor="#fff6d6", color="#b08a00"];
+
+  // ------------------------------------------------------------- athena_drive
+  subgraph cluster_drive {
+    label="athena_drive"; style="rounded,filled"; fillcolor="#e6f4e6"; color="#4f9a4f"; fontsize=12;
+    mb [label="motor_bridge\nskid-steer kinematics, jerk limit,\nPWM + deadband, 0.5 s watchdog"];
+  }
+
+  subgraph cluster_out {
+    label="Drive hardware"; style="rounded,filled"; fillcolor="#eeeeee"; color="#999999"; fontsize=12;
+    pico [label="Pico W firmware\nV <left> <right>, USB serial 115200\n500 ms watchdog, 20 kHz PWM"];
+    mot  [label="3 driver boards, 6 DC motors"];
+  }
+
+  // ------------------------------------------------------------- athena_remote
+  subgraph cluster_remote {
+    label="athena_remote"; style="rounded,filled"; fillcolor="#fdf0e0"; color="#c8832a"; fontsize=12;
+    fb [label="foxglove_bridge\n127.0.0.1:8765"];
+    gm [label="goal_manager\nwaypoint_manager"];
+    tm [label="teleop_mux\ncancels Nav2 goal on input"];
+  }
+  panel [label="Foxglove panel\nbrowser on your machine,\nthrough an SSH tunnel", fillcolor="#fff0e0", color="#c8832a"];
+
+  // ------------------------------------------------------------- sensing
+  px -> pb;
+  rs -> ds;
+  rs -> vo;
+  vo -> gate;
+  pb -> ns  [label=" /gps/fix"];
+  pb -> el  [label=" /imu/data\n (yaw rate)"];
+  pb -> eg;
+  gate -> el [label=" /vio/odometry\n (velocities only)"];
+  gate -> eg;
+  ns -> eg  [label=" /odometry/gps"];
+
+  // ------------------------------------------------------------- planning
+  ds -> lc  [label=" points_downsampled"];
+  ds -> gc;
+  el -> lc  [label=" /odometry/local"];
+  eg -> gc  [label=" /odometry/global"];
+  gc -> lc  [label=" plan"];
+  lc -> vs  [label=" /cmd_vel_nav"];
+  vs -> cmd;
+
+  // ------------------------------------------------------------- drive
+  cmd -> mb;
+  mb -> pico;
+  pico -> mot;
+
+  // ------------------------------------------------------------- operator
+  panel -> fb [dir=both, label=" WebSocket"];
+  fb -> gm;
+  fb -> tm;
+  gm -> gc  [label=" NavigateToPose", constraint=false, lhead=cluster_nav2];
+  tm -> cmd [constraint=false];
+
+}

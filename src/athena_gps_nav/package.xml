@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>athena_gps_nav</name>
+  <version>0.1.0</version>
+  <description>
+    GPS + VIO + IMU outdoor navigation stack for the Athena rover.
+    Dual-EKF (robot_localization) + navsat_transform + Nav2 (no static map),
+    with RealSense D435i visual-inertial odometry (rtabmap rgbd_odometry),
+    Pixhawk GPS/IMU bridge (pymavlink) and Pico W motor bridge.
+  </description>
+  <maintainer email="thomas.j.chackenkulam295@gmail.com">Jashan</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>map_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geographic_msgs</depend>
+
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>spatio_temporal_voxel_layer</exec_depend>
+  <exec_depend>nav2_simple_commander</exec_depend>
+  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>imu_filter_madgwick</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf_transformations</exec_depend>
+  <exec_depend>athena_drive</exec_depend>
+  <exec_depend>athena_remote</exec_depend>
+  <!-- vio.launch.py runs rgbd_odometry from here.  Use the APT package
+       (ros-humble-rtabmap-odom).  An older comment here pointed at the
+       source build in ~/rtab/install: that build has been ABI-broken since
+       the Aug 2026 ROS apt upgrade and crashes with std::bad_array_new_length,
+       so do not source it. -->
+  <exec_depend>rtabmap_odom</exec_depend>
+  <exec_depend>lifecycle_msgs</exec_depend>
+
+  <!-- Imported at module scope by the Python nodes, so they are runtime
+       dependencies even though nothing links against them:
+         yaml   gps_waypoint_follower.py, gps_waypoint_logger.py
+         numpy  pointcloud_downsampler.py and the diagnostics -->
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <!-- pymavlink (pixhawk_bridge.py, gps_diagnose.py) is deliberately NOT
+       declared: it is pip-installed into ~/.local and there is no
+       python3-pymavlink in this machine's apt archive, so declaring it would
+       make `rosdep install` fail rather than succeed.  Install it with
+       `pip3 install pymavlink` on a fresh machine. -->
+
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

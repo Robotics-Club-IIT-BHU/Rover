@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>athena_remote</name>
+  <version>1.1.0</version>
+  <description>
+    Operator front end for the Athena rover.  Runs the Foxglove bridge and the
+    nodes behind the control panel (GPS goals, saved waypoints, travelled
+    trajectory, speed-limited teleop), plus the plumbing that gets an operator
+    onto the rover in the first place: captive-portal WiFi login from a
+    terminal and viewing the ROS graph from another machine.
+  </description>
+  <maintainer email="thomas.j.chackenkulam295@gmail.com">Jashan</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>action_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>foxglove_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>robot_localization</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_msgs</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>rcl_interfaces</depend>
+  <exec_depend>foxglove_bridge</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
