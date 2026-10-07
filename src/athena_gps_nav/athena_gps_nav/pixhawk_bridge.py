@@ -2,11 +2,14 @@
 """
 pixhawk_bridge.py
 
-Bridges the Pixhawk (PX4 FMU on /dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00)
-to ROS 2 via pymavlink and publishes:
+Bridges the MAVLink autopilot to ROS 2 via pymavlink and publishes:
 
     /gps/fix   (sensor_msgs/NavSatFix)  - from GPS_RAW_INT, covariance from HDOP
     /imu/data  (sensor_msgs/Imu)        - from HIGHRES_IMU (or SCALED_IMU2) + ATTITUDE
+
+Autopilot: CubeOrange+ running ArduPilot with a Here4 GPS on CAN (current), or
+the legacy PX4 FMU v2.  The port is auto-detected (autopilot_port.py).  The
+Cube/ArduPilot does not send HIGHRES_IMU, so IMU data comes from SCALED_IMU2.
 
 Based on athena_slam/gpsimusplit.py + imupub.py, with two important fixes for
 robot_localization / navsat_transform compatibility (REP-103 / REP-145):
@@ -15,8 +18,8 @@ robot_localization / navsat_transform compatibility (REP-103 / REP-145):
      relative to NED (yaw 0 = North, clockwise-positive).  ROS expects FLU body
      axes and ENU-referenced orientation (yaw 0 = East, counter-clockwise).
      This node converts:  ENU yaw = pi/2 - NED yaw,  y/z body axes negated.
-  2. This firmware streams HIGHRES_IMU (already SI units), not RAW_IMU.  The
-     node requests both HIGHRES_IMU and SCALED_IMU2 and uses whichever arrives.
+  2. PX4 streams HIGHRES_IMU (already SI units); ArduPilot streams SCALED_IMU2.
+     The node requests both and uses whichever arrives.
 
 No fusion is done here - this sits upstream of the EKFs.
 """
@@ -31,6 +34,8 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
 from pymavlink import mavutil
+
+from athena_gps_nav.autopilot_port import find_autopilot_port
 
 G = 9.80665
 
@@ -64,8 +69,6 @@ def _patch_pymavlink_instances():
 
 _patch_pymavlink_instances()
 
-PIXHAWK_BY_ID = '/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00'
-
 
 
 def _msg_id(name, fallback):
@@ -82,8 +85,10 @@ class PixhawkBridge(Node):
     def __init__(self):
         super().__init__('pixhawk_bridge')
 
-        self.declare_parameter('port', PIXHAWK_BY_ID)
-        # 921600, NOT 115200. Measured on this FMU: at 115200 the link
+        # 'auto' = first CubePilot (or legacy PX4 FMU v2) under /dev/serial/by-id
+        self.declare_parameter('port', 'auto')
+        # Over USB CDC (CubeOrange+) the baud rate is ignored.  For the legacy
+        # PX4 FMU v2 it is NOT: 921600, NOT 115200. Measured on that FMU: at 115200 the link
         # saturates and a THIRD of all MAVLink packets arrive corrupt
         # (33% BAD_DATA, ~5 usable IMU samples/s); at 921600 corruption
         # drops to 8% and throughput rises ~12x. The old athena_slam
@@ -120,6 +125,15 @@ class PixhawkBridge(Node):
         # "Setting the GPS error model honestly" in the README.
         self.declare_parameter('gps_uere', 1.74)
         self.declare_parameter('gps_sigma_floor', 3.06)
+        # Receivers that report their own accuracy (GPS_RAW_INT.h_acc/v_acc,
+        # mm; the u-blox F9P in the Here4 does) are trusted over the HDOP
+        # model above: sigma^2 = h_acc^2 + gps_acc_floor^2.  The floor covers
+        # slow wander that the receiver's instantaneous estimate does not
+        # include.  0.5 m is a starting value, NOT yet measured on this
+        # receiver - re-derive it with a stationary run (README, "Setting the
+        # GPS error model honestly").  gps_uere/gps_sigma_floor are only the
+        # fallback for receivers that report no h_acc (the legacy FMU v2).
+        self.declare_parameter('gps_acc_floor', 0.5)
         # --- gyro zero-rate bias compensation ---------------------------
         # HIGHRES_IMU carries the raw rate; nothing upstream removes the
         # gyro's zero-rate offset.  Measured on this airframe 2026-09-02:
@@ -159,6 +173,7 @@ class PixhawkBridge(Node):
         self._gps_uere = float(self.get_parameter('gps_uere').value)
         self._gps_sigma_floor = float(
             self.get_parameter('gps_sigma_floor').value)
+        self._gps_acc_floor = float(self.get_parameter('gps_acc_floor').value)
         self._publish_no_fix = bool(self.get_parameter('publish_no_fix').value)
 
         qos = QoSProfile(
@@ -191,12 +206,15 @@ class PixhawkBridge(Node):
         self._gps_count = 0
         self._last_fix_type = -1
         self._last_sats = -1
+        self._last_sigma_h = float('nan')
         self._bad_data = 0
         self._good_data = 0
 
         port = self.get_parameter('port').value
+        if port == 'auto':
+            port = find_autopilot_port()
         baud = int(self.get_parameter('baud').value)
-        self.get_logger().info(f'Connecting to Pixhawk at {port} (baud={baud})...')
+        self.get_logger().info(f'Connecting to autopilot at {port} (baud={baud})...')
         self.mav = mavutil.mavlink_connection(port, baud=baud)
         self.mav.wait_heartbeat()
         self.get_logger().info(
@@ -359,8 +377,8 @@ class PixhawkBridge(Node):
         if abs(math.degrees(z)) > 0.5:
             self.get_logger().warn(
                 f'gyro z bias is {math.degrees(z):+.3f} deg/s - large for a '
-                'MEMS gyro. It is being compensated, but run a PX4 gyro '
-                'calibration: compensation cannot fix scale-factor error, '
+                'MEMS gyro. It is being compensated, but run the autopilot '
+                'gyro/accel calibration: compensation cannot fix scale-factor error, '
                 'only offset.',
                 throttle_duration_sec=120.0)
 
@@ -465,6 +483,18 @@ class PixhawkBridge(Node):
         # vertical is empirically far worse: 25 m of altitude range was seen
         # over 240 s stationary, so give the floor twice the weight there.
         sv = math.sqrt((vdop * self._gps_uere) ** 2 + (2.0 * floor) ** 2)
+        # Prefer the receiver's own accuracy estimate when it reports one
+        # (h_acc/v_acc in mm; 0 or UINT32_MAX = unknown).
+        h_acc = getattr(msg, 'h_acc', 0)
+        v_acc = getattr(msg, 'v_acc', 0)
+        af = self._gps_acc_floor
+        if 0 < h_acc < 0xFFFFFFFF:
+            sh = math.sqrt((h_acc / 1000.0) ** 2 + af ** 2)
+            if 0 < v_acc < 0xFFFFFFFF:
+                sv = math.sqrt((v_acc / 1000.0) ** 2 + (2.0 * af) ** 2)
+            else:
+                sv = 2.0 * sh
+        self._last_sigma_h = sh
         fix.position_covariance = [
             sh * sh, 0.0, 0.0,
             0.0, sh * sh, 0.0,
@@ -481,13 +511,14 @@ class PixhawkBridge(Node):
         self.get_logger().info(
             f'imu msgs: {self._imu_count} (src={self._imu_source}), '
             f'gps msgs: {self._gps_count} '
-            f'(fix_type={self._last_fix_type}, sats={self._last_sats}), '
+            f'(fix_type={self._last_fix_type}, sats={self._last_sats}, '
+            f'sigma_h={self._last_sigma_h:.2f} m), '
             f'link corruption: {corrupt:.1f}%')
         if corrupt > 15.0:
             self.get_logger().warn(
                 f'MAVLink link is {corrupt:.0f}% corrupt - the serial link is '
-                'overrun. Check the baud parameter (921600 works on this '
-                'FMU; 115200 does not) and reduce requested stream rates.')
+                'overrun. Check the baud parameter (921600 for the legacy '
+                'FMU v2; ignored over USB) and reduce requested stream rates.')
         self._good_data = self._bad_data = 0
 
     @staticmethod

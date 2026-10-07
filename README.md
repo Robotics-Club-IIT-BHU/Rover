@@ -492,5 +492,6 @@ Restart the stack after any manual clock change: nodes cache timestamps.
 ## Contributors
 
 - **Jashan**: GPS navigation stack, drive package, remote access and control panel
+- **Amartya Mishra**
 
 Add your name here when you contribute. See [CONTRIBUTING.md](src/CONTRIBUTING.md).

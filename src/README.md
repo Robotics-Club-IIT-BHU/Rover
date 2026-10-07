@@ -447,7 +447,7 @@ Restart the stack after any manual clock change: nodes cache timestamps.
 | Device | Connection | Used by |
 |---|---|---|
 | RealSense D435i | USB 3 | camera driver |
-| Pixhawk PX4 FMU v2 | USB serial, MAVLink **921600** baud (`/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00`) | `pixhawk_bridge` |
+| CubeOrange+ (ArduPilot) + Here4 GPS on CAN | USB serial, MAVLink; port auto-detected (`/dev/serial/by-id/usb-CubePilot_*-if00`, legacy PX4 FMU v2 also found; baud only matters for the legacy FMU: 921600) | `pixhawk_bridge` |
 | Raspberry Pi Pico W | USB serial, 115200 baud (`/dev/serial/by-id/usb-Raspberry_Pi_Pico*`) | `motor_bridge`; firmware in [athena_drive](athena_drive/docs/FIRMWARE.md) |
 
 - **Motor wiring and the Pico pin map** (which GPIO goes to which driver channel,
@@ -492,5 +492,6 @@ Restart the stack after any manual clock change: nodes cache timestamps.
 ## Contributors
 
 - **Jashan**: GPS navigation stack, drive package, remote access and control panel
+- **Amartya Mishra**
 
 Add your name here when you contribute. See [CONTRIBUTING.md](CONTRIBUTING.md).

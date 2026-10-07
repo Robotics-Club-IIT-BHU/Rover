@@ -50,7 +50,7 @@ usb 1-2-port1: unable to enumerate USB device
 ```bash
 sudo dmesg | grep 'usb 1-2.1'         # disconnect history
 lsusb | grep 26ac                     # on the bus?
-ls /dev/serial/by-id/ | grep -i px4   # serial node present?
+ls /dev/serial/by-id/ | grep -iE 'cubepilot|px4'   # serial node present?
 ```
 
 Visible in `lsusb` but **no serial node**, or a node with no heartbeat, means the
@@ -83,7 +83,7 @@ usable fix.
 | 2 | 2D only, no altitude |
 | **3+** | 3D fix: what `navsat_transform` needs |
 
-**Caveat:** on this PX4 build a receiver that is merely *searching* also reports
+**Caveat (legacy PX4 FMU v2 only; not seen on the CubeOrange+/Here4):** on that PX4 build a receiver that is merely *searching* also reports
 `fix_type=0`, `sats=0` and "GPS not present", indistinguishable from an unplugged
 module. It once sat like that for over two hours and then acquired normally. **Do
 not call it a hardware fault from `fix_type=0` alone**: give it 30+ minutes with
@@ -100,8 +100,8 @@ reboot the FMU; heavy telemetry load does **not** starve the GPS task; the bridg
 **not** at fault (MAVROS reports identically; use it as a referee):
 
 ```bash
-ros2 launch mavros px4.launch \
-  fcu_url:=/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00:921600
+ros2 launch mavros apm.launch \
+  fcu_url:=$(ls /dev/serial/by-id/usb-CubePilot_*-if00):921600   # legacy FMU v2: px4.launch
 ros2 topic echo /mavros/global_position/raw/fix --once
 ```
 

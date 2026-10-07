@@ -542,7 +542,7 @@ flowchart TD
 | Device | Connection | Read by |
 |---|---|---|
 | RealSense D435i | USB 3 (`8086:0b3a`) | `realsense2_camera_node` |
-| Pixhawk PX4 FMU v2 | USB CDC (`26ac:0011`), MAVLink **@921600** | `pixhawk_bridge` |
+| CubeOrange+ (ArduPilot) + Here4 GPS on CAN | USB CDC (`2dae:1058`), MAVLink, port auto-detected. Legacy PX4 FMU v2 (`26ac:0011`) **@921600** still supported | `pixhawk_bridge` |
 | Raspberry Pi Pico W | USB CDC (`2e8a:f00a`) | `athena_drive/motor_bridge` |
 
 Always address serial devices by their `/dev/serial/by-id/...` path. The

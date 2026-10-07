@@ -141,7 +141,7 @@ track width 0.85 m); these numbers are load-bearing, so measure rather than gues
 | Device | Connection | Read by |
 |---|---|---|
 | RealSense D435i | USB 3 (`8086:0b3a`) | `realsense2_camera_node` |
-| Pixhawk PX4 FMU v2 | USB serial (`26ac:0011`), MAVLink at **921600** baud: `/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00` | `pixhawk_bridge` |
+| CubeOrange+ (ArduPilot) + Here4 GPS on CAN | USB serial (`2dae:1058`), MAVLink; port auto-detected (`/dev/serial/by-id/usb-CubePilot_*-if00`). Legacy PX4 FMU v2 (`26ac:0011`, 921600 baud) is still detected | `pixhawk_bridge` |
 | Raspberry Pi Pico W | USB serial (`2e8a:f00a`), 115200 baud: `/dev/serial/by-id/usb-Raspberry_Pi_Pico*` | `athena_drive/motor_bridge` |
 
 Pico wiring to the motor drivers: [athena_drive README](../athena_drive/README.md#pico-to-motor-driver-pin-map).

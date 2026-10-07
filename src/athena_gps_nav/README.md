@@ -148,7 +148,9 @@ Tuning rationale and the rest: [docs/TUNING.md](docs/TUNING.md).
 | | footprint | 1.3 x 1.0 m rectangle |
 | `dual_ekf_navsat.yaml` | `navsat_transform: delay` | 45 s (pin a datum for repeatable runs) |
 | | absolute yaw (`imu0_config` index 5) | false in both EKFs; gyro rate only |
-| `pixhawk_bridge` | `baud`, `imu_rate_hz`, `gps_uere`, `gps_sigma_floor` | 921600, 50, 1.74, 3.06 |
+| `pixhawk_bridge` | `port`, `baud`, `imu_rate_hz`, `gps_acc_floor`, `gps_uere`, `gps_sigma_floor` | `auto`, 921600, 50, 0.5, 1.74, 3.06 |
+
+`gps_acc_floor` is added in quadrature to the receiver's own `h_acc`/`v_acc` (the Here4 reports them). `gps_uere`/`gps_sigma_floor` are only the HDOP fallback for receivers that do not (legacy FMU v2). The 0.5 m floor is unmeasured: re-derive it with a stationary run.
 
 Other files: `behavior_trees/athena_nav_to_pose.xml` (the tree), `urdf/athena.urdf.xacro`
 (sensor positions; the camera offsets are load-bearing, re-measure with
@@ -158,3 +160,4 @@ Other files: `behavior_trees/athena_nav_to_pose.xml` (the tree), `urdf/athena.ur
 ## Contributors
 
 - **Jashan**: the whole stack: sensor bridges, dual-EKF tuning, VIO gating, costmap work
+- **Amartya Mishra**

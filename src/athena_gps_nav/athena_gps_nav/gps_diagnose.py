@@ -28,13 +28,16 @@ import time
 
 from pymavlink import mavutil
 
-PORT = '/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00'
+from athena_gps_nav.autopilot_port import find_autopilot_port
 
 # MAV_SYS_STATUS_SENSOR_GPS, the bit SYS_STATUS uses to say a GPS exists.
 SENSOR_GPS_BIT = 0x20
 
 # GPS_RAW_INT sends eph as 65535 when it has no HDOP to report.
 EPH_UNKNOWN = 65535
+
+# ...and h_acc as UINT32_MAX (or 0) when the receiver gives no accuracy.
+H_ACC_UNKNOWN = 0xFFFFFFFF
 
 # One line per ~0.4 s keeps the output readable while still showing the
 # receiver flapping in and out, which is the fault this tool exists to catch.
@@ -134,8 +137,11 @@ def collect(mav, seconds):
             stats['transitions'] += 1
         prev_fix = fix
 
+        h_acc = getattr(msg, 'h_acc', 0)
+        acc = (f'{h_acc / 1000.0:6.2f} m'
+               if 0 < h_acc < H_ACC_UNKNOWN else '   n/a  ')
         print(f'  fix={fix} ({FIX_TYPES.get(fix, "?").split()[0]:8s}) '
-              f'sats={sats:2d}  hdop={hdop:5.2f}  '
+              f'sats={sats:2d}  hdop={hdop:5.2f}  h_acc={acc}  '
               f'lat={msg.lat/1e7:11.7f} lon={msg.lon/1e7:11.7f}',
               flush=True)
         time.sleep(PRINT_PERIOD)
@@ -145,14 +151,17 @@ def collect(mav, seconds):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument('--port', default=PORT)
-    # 921600: at 115200 this FMU corrupts ~33% of MAVLink frames
+    ap.add_argument('--port', default=None,
+                    help='serial port (default: auto-detect CubeOrange+ / '
+                         'legacy PX4 FMU v2 under /dev/serial/by-id)')
+    # 921600: at 115200 the legacy FMU v2 corrupted ~33% of MAVLink frames.
+    # Over USB CDC (CubeOrange+) the baud rate is ignored.
     ap.add_argument('--baud', type=int, default=921600)
     ap.add_argument('--seconds', type=float, default=30.0)
     # tolerate ROS-style args when run via `ros2 run`
     args, _ = ap.parse_known_args(argv if argv is not None else sys.argv[1:])
 
-    mav = connect(args.port, args.baud)
+    mav = connect(args.port or find_autopilot_port(), args.baud)
     request_gps_streams(mav)
     stats = collect(mav, args.seconds)
     return print_verdict(stats)
@@ -174,8 +183,10 @@ def print_verdict(stats):
     if not stats['seen_gps_msg']:
         print('  NO GPS_RAW_INT messages at all.')
         print('  -> The autopilot is not producing GPS telemetry. Check that')
-        print('     a GPS module is wired to a GPS/SERIAL port and that the')
-        print('     port is configured for GPS in the autopilot firmware.')
+        print('     a GPS module is wired to a GPS/SERIAL or CAN port and that')
+        print('     it is configured for GPS in the autopilot firmware')
+        print('     (ArduPilot: GPS1_TYPE=9 for a DroneCAN GPS such as Here4,')
+        print('     CAN_P1_DRIVER=1, CAN_D1_PROTOCOL=1).')
         return 1
 
     print(f'  messages received : {samples}')
@@ -196,8 +207,8 @@ def print_verdict(stats):
         print('  losing the receiver entirely (fix_type drops to 0, "no GPS",')
         print('  then comes back). No amount of sky view causes that; it is')
         print('  an electrical fault. Check, in order:')
-        print('    1. the GPS connector at the Pixhawk GPS port (reseat it)')
-        print('    2. the cable, especially near strain points/connectors')
+        print('    1. the GPS connector at the autopilot GPS/CAN port (reseat it)')
+        print('    2. the cable (CAN H/L for a Here4), especially near strain points')
         print('    3. power: a browning-out 5V rail drops the module off')
         print('    4. the module itself (swap it to confirm)')
         print('  Navigation will be unreliable until this is fixed: every')
@@ -209,7 +220,7 @@ def print_verdict(stats):
     elif best_fix == 0:
         print('  VERDICT: fix_type 0 ("no GPS device") for the whole window.')
         print()
-        print('  On THIS rover that is ambiguous: a PX4 receiver still')
+        print('  On a legacy PX4 FMU v2 that is ambiguous: a receiver still')
         print('  searching also reports fix_type 0 / sats 0 / sensor-absent,')
         print('  and one was measured sitting like that for over two hours')
         print('  before acquiring normally. So before suspecting hardware:')
