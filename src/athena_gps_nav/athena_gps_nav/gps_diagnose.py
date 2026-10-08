@@ -23,12 +23,17 @@ Exit codes:  0 = working (3D fix seen), 1 = no GPS telemetry at all,
 """
 
 import argparse
+import os
 import sys
 import time
 
-from pymavlink import mavutil
+# MAVLink 2 before pymavlink loads: needed to decode GPS_RAW_INT h_acc/v_acc
+os.environ.setdefault('MAVLINK20', '1')
 
-PORT = '/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00'
+from pymavlink import mavutil  # noqa: E402
+
+from athena_gps_nav.rtcm import RtcmSender, RtcmTcpClient  # noqa: E402
+from athena_gps_nav.pixhawk_bridge import find_fc_port  # noqa: E402
 
 # MAV_SYS_STATUS_SENSOR_GPS, the bit SYS_STATUS uses to say a GPS exists.
 SENSOR_GPS_BIT = 0x20
@@ -134,8 +139,10 @@ def collect(mav, seconds):
             stats['transitions'] += 1
         prev_fix = fix
 
+        h_acc = getattr(msg, 'h_acc', 0) / 1000.0
+        acc = f'{h_acc:6.3f}m' if h_acc > 0 else '   n/a '
         print(f'  fix={fix} ({FIX_TYPES.get(fix, "?").split()[0]:8s}) '
-              f'sats={sats:2d}  hdop={hdop:5.2f}  '
+              f'sats={sats:2d}  hdop={hdop:5.2f}  hAcc={acc}  '
               f'lat={msg.lat/1e7:11.7f} lon={msg.lon/1e7:11.7f}',
               flush=True)
         time.sleep(PRINT_PERIOD)
@@ -145,16 +152,33 @@ def collect(mav, seconds):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument('--port', default=PORT)
-    # 921600: at 115200 this FMU corrupts ~33% of MAVLink frames
+    ap.add_argument('--port', default=None,
+                    help='serial device (default: auto-detect by-id)')
+    # 921600: at 115200 the old PX4 FMU corrupts ~33% of MAVLink frames
     ap.add_argument('--baud', type=int, default=921600)
     ap.add_argument('--seconds', type=float, default=30.0)
+    ap.add_argument('--rtcm-host', default=None,
+                    help='base station RTCM TCP host; enables RTK injection')
+    ap.add_argument('--rtcm-port', type=int, default=2101)
     # tolerate ROS-style args when run via `ros2 run`
     args, _ = ap.parse_known_args(argv if argv is not None else sys.argv[1:])
 
-    mav = connect(args.port, args.baud)
+    mav = connect(args.port or find_fc_port(), args.baud)
     request_gps_streams(mav)
-    stats = collect(mav, args.seconds)
+    client = None
+    if args.rtcm_host:
+        sender = RtcmSender(mav)
+        client = RtcmTcpClient(args.rtcm_host, args.rtcm_port, sender.send,
+                               log=lambda s: print(f'  [rtcm] {s}', flush=True))
+        client.start()
+    try:
+        stats = collect(mav, args.seconds)
+    finally:
+        if client:
+            client.stop()
+    if client:
+        print(f'\n  RTCM frames injected: {client.total_frames}, '
+              f'bad CRC: {client.bad_crc}')
     return print_verdict(stats)
 
 
@@ -202,6 +226,10 @@ def print_verdict(stats):
         print('    4. the module itself (swap it to confirm)')
         print('  Navigation will be unreliable until this is fixed: every')
         print('  dropout stalls the global EKF and the map frame freezes.')
+    elif best_fix >= 5:
+        print(f'  VERDICT: RTK is working ({FIX_TYPES[min(best_fix, 6)]}).')
+        print('  navsat_transform will initialize with centimetre-level data.')
+        return 0
     elif best_fix >= 3:
         print('  VERDICT: GPS is working. navsat_transform will initialize')
         print('  and /odometry/gps will publish.')
