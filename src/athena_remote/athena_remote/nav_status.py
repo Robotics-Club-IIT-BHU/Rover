@@ -60,6 +60,7 @@ from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
 from action_msgs.msg import GoalStatus, GoalStatusArray
 from geometry_msgs.msg import PoseStamped
 from rcl_interfaces.msg import Log
+from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 from tf2_msgs.msg import TFMessage
 
@@ -67,6 +68,11 @@ try:                                    # present wherever Nav2 is installed
     from nav2_msgs.msg import BehaviorTreeLog
 except ImportError:                     # pragma: no cover
     BehaviorTreeLog = None
+
+try:
+    from nav2_msgs.action import NavigateToPose
+except ImportError:                     # pragma: no cover
+    NavigateToPose = None
 
 
 # =========================================================================
@@ -154,6 +160,55 @@ RECOVERY_ACTION_TEXT = {                     # BT node name -> what the operator
     'RecoveryClearLocal': 'clearing the local costmap',
     'Spin': 'SPINNING (stock tree!)', 'BackUp': 'BACKING UP (stock tree!)',
 }
+
+ROOT_CAUSE_EXPLANATIONS = {
+    'goal_tf': "Goal stamped in '{frame}' expired after 10s: Nav2 replanning requires transforms within 10s buffer.",
+    'collision': "Lethal obstacle detected inside footprint or path on local costmap (collision ahead).",
+    'no_progress': "Rover did not move 0.3 m within 30 s (wheels may be stalling or deadband PWM too low).",
+    'teleop': "Manual control taken by teleop (teleop input detected).",
+    'no_gps': "GPS goal rejected: waiting for valid 3D/RTK satellite fix.",
+    'no_path': "Planner found no path to the goal: route is completely blocked on global costmap.",
+    'goal_off_map': "Goal is outside the planner's 100x100 m rolling window (>50 m away): send a closer intermediate goal.",
+    'start_off_map': "Rover's own pose is off the global costmap: localization jumped or uninitialized.",
+    'camera_stale': "Depth camera silent (>2 s without point cloud): costmaps stale, navigation paused.",
+    'robot_tf': "Robot pose transform too old: EKF lagging or Jetson CPU overloaded.",
+    'server_timeout': "Nav2 server too slow to respond to behavior tree: CPU overload.",
+    'bt_error': "Behaviour tree failed to load: check XML file.",
+    'nav2_down': "Nav2 stack is inactive or crashed: heartbeat lost.",
+    'cancel_cmd': "Goal canceled by operator command via /athena/goal_text or /athena/goal_cancel.",
+}
+
+
+def format_status_card(activity, decision, reason, target=None, dist_rem=None, eta=None,
+                       elapsed=None, fix_state=None, costmap_state=None, recoveries=None,
+                       max_recoveries=6):
+    """Formats the comprehensive human-readable status for Foxglove and ROS 2."""
+    dist_str = f"{dist_rem:.2f} m" if dist_rem is not None else "N/A"
+    if eta is not None:
+        eta_str = f"{eta:.1f} s"
+        if elapsed is not None:
+            eta_str += f" (elapsed: {elapsed:.0f} s)"
+    elif elapsed is not None and elapsed > 0:
+        eta_str = f"N/A (elapsed: {elapsed:.0f} s)"
+    else:
+        eta_str = "N/A"
+
+    rec_str = f"{recoveries}/{max_recoveries}" if recoveries is not None else f"0/{max_recoveries}"
+
+    lines = [
+        f"[ATHENA STATUS] {activity} | {decision}",
+        f"Activity:       {activity}",
+        f"Decision:       {decision}",
+        f"Why:            {reason}",
+        f"Target:         {target or 'None'}",
+        f"Dist Remaining: {dist_str}",
+        f"Estimated Time: {eta_str}",
+        f"GPS Fix State:  {fix_state or 'UNKNOWN'}",
+        f"Active Costmap: {costmap_state or 'Nominal'}",
+        f"Recovery Count: {rec_str}",
+    ]
+    return "\n".join(lines)
+
 
 
 def classify(name, msg):
@@ -276,7 +331,7 @@ def explain_end(ep, outcome, t_end, insp=None, xy_tol=0.5):
         return 'info', f'SUCCEEDED {head}: reached{tail}'
 
     if outcome == 'CANCELED':
-        who = {'teleop': 'manual control taken (teleop input)',
+        who = {'teleop': 'manual control taken by teleop (teleop input detected)',
                'cancel_cmd': 'cancel command (/athena/goal_text or goal_cancel)'}.get(
                    ep.cancel_source, 'cancelled by a client')
         key = ep.deciding(t_end)
@@ -302,9 +357,9 @@ def explain_end(ep, outcome, t_end, insp=None, xy_tol=0.5):
     if key == 'goal_tf':
         age = (f' {e["first"] - ep.stamp:.0f} s after it was sent'
                if ep.stamp else ' about 10 s after it was sent')
-        why = (f'goal expired{age}. It was stamped in \'{ep.frame or "a moving frame"}\', '
-               'Nav2 Humble re-transforms it at that stamp on every replan and TF keeps '
-               'only 10 s (planner: could not transform goal). Click via /athena/goal_click, '
+        why = (f'Goal stamped in \'{ep.frame or "base_link"}\' expired after 10s: '
+               f'Nav2 replanning requires transforms within 10s buffer (goal expired{age}; '
+               'planner: could not transform goal). Resend via /athena/goal_click, '
                'or set the 3D display frame to \'map\'')
     elif key == 'goal_off_map':
         why = ('goal is outside the planner\'s 100 x 100 m rolling window (>50 m away): '
@@ -326,10 +381,11 @@ def explain_end(ep, outcome, t_end, insp=None, xy_tol=0.5):
         why = ('the rover is off its planned path (controller: plan has 0 poses): '
                'localization jumped?')
     elif key == 'collision':
-        why = (f'blocked: lethal costmap cells in the rover\'s path and no detour found '
-               f'(controller: collision ahead x{e["n"]}, {rounds})')
+        why = (f'Lethal obstacle detected inside footprint or path on local costmap '
+               f'(collision ahead x{e["n"]}, {rounds})')
     elif key == 'no_progress':
-        why = ('rover did not move 0.3 m in 30 s (controller: failed to make progress): '
+        why = ('Rover did not move 0.3 m within 30 s (wheels may be stalling or deadband PWM too low; '
+               'rover did not move 0.3 m in 30 s; controller: failed to make progress): '
                'stuck, slipping, motors not driving, or odometry frozen')
     elif key == 'server_timeout':
         why = (f'Nav2 too slow: {e["arg"] or "a server"} did not acknowledge the behaviour '
@@ -493,6 +549,7 @@ class NavStatus(Node):
     def __init__(self):
         super().__init__('nav_status')
         self.declare_parameter('publish_topic', '/athena/nav_status')
+        self.declare_parameter('decision_topic', '/athena/decision_status')
         self.declare_parameter('recovery_rounds', 6)
         self.declare_parameter('footprint_x', 0.65)
         self.declare_parameter('footprint_y', 0.5)
@@ -501,6 +558,7 @@ class NavStatus(Node):
         self.declare_parameter('inspect_costmap', True)
 
         topic = self.get_parameter('publish_topic').value
+        dec_topic = self.get_parameter('decision_topic').value
         self.max_rounds = int(self.get_parameter('recovery_rounds').value)
         self.fp_x = float(self.get_parameter('footprint_x').value)
         self.fp_y = float(self.get_parameter('footprint_y').value)
@@ -512,6 +570,8 @@ class NavStatus(Node):
                              reliability=ReliabilityPolicy.RELIABLE,
                              durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.pub = self.create_publisher(String, topic, latched) if topic else None
+        self.decision_pub = self.create_publisher(String, dec_topic, latched) if dec_topic else None
+        self.root_decision_pub = self.create_publisher(String, '/decision_status', latched)
 
         self.status = {}            # goal_id -> last status code
         self.primed = False         # first status message seen
@@ -523,9 +583,29 @@ class NavStatus(Node):
         self.last_text = None
         self.map_odom_static = False
         self.last_teleop = self.last_cancel_cmd = -1e9
+        self.last_goal_start_time = None
+        self.last_target_str = 'None'
+
+        # High-level transparent status fields
+        self.activity = 'IDLE'
+        self.decision = 'NONE'
+        self.reason = 'Watching Nav2 goals (clicked, typed, waypoint, any client)'
+        self.target_str = 'None (idle)'
+        self.dist_remaining = None
+        self.eta_sec = None
+        self.gps_status = None
+        self.gps_lat = None
+        self.gps_lon = None
+        self.costmap_state = 'Nominal'
+        self.last_card = None
+        self.last_publish_time = 0.0
 
         self.create_subscription(GoalStatusArray, '/navigate_to_pose/_action/status',
                                  self._status_cb, qos_profile_action_status_default)
+        if NavigateToPose is not None:
+            self.create_subscription(NavigateToPose.Impl.FeedbackMessage,
+                                     '/navigate_to_pose/_action/feedback',
+                                     self._feedback_cb, 10)
         rosout_qos = QoSProfile(depth=100, history=HistoryPolicy.KEEP_LAST,
                                 reliability=ReliabilityPolicy.RELIABLE,
                                 durability=DurabilityPolicy.VOLATILE)
@@ -534,33 +614,115 @@ class NavStatus(Node):
             self.create_subscription(BehaviorTreeLog, '/behavior_tree_log', self._bt_cb, 20)
         self.create_subscription(PoseStamped, '/goal_pose', self._goal_pose_cb, 10)
         self.create_subscription(String, '/athena/goal_status', self._gm_cb, 10)
+        self.create_subscription(NavSatFix, '/gps/fix', self._gps_cb, 10)
+        self.create_subscription(String, '/athena/teleop/status', self._teleop_cb, 10)
         static_qos = QoSProfile(depth=100, history=HistoryPolicy.KEEP_LAST,
                                 reliability=ReliabilityPolicy.RELIABLE,
                                 durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.create_subscription(TFMessage, '/tf_static', self._static_cb, static_qos)
 
+        # 1 Hz periodic timer for live feedback countdown and teleop release detection
+        self.timer = self.create_timer(1.0, self._periodic_tick)
+
         self._say('info', 'IDLE: watching Nav2 goals (clicked, typed, waypoint, any client)')
 
     # ------------------------------------------------------------- output
+    def _get_fix_state_str(self):
+        if self.gps_status is None:
+            return "UNKNOWN (no /gps/fix yet)"
+        status_map = {
+            -1: "NO_FIX (searching for satellites)",
+            0: "3D Fix (status=0)",
+            1: "SBAS Fix (status=1)",
+            2: "GBAS/RTK Fix (status=2)",
+        }
+        fix_desc = status_map.get(self.gps_status, f"Fix status={self.gps_status}")
+        if self.gps_lat is not None and not math.isnan(self.gps_lat) and abs(self.gps_lat) > 0.001:
+            fix_desc += f" [{self.gps_lat:.6f}, {self.gps_lon:.6f}]"
+        return fix_desc
+
+    def _update_status(self, sev='info'):
+        now = self._now()
+        self.last_publish_time = now
+        elapsed = (now - self.ep.t0) if self.ep else None
+
+        card = format_status_card(
+            activity=self.activity,
+            decision=self.decision,
+            reason=self.reason,
+            target=self.target_str,
+            dist_rem=self.dist_remaining,
+            eta=self.eta_sec,
+            elapsed=elapsed,
+            fix_state=self._get_fix_state_str(),
+            costmap_state=self.costmap_state,
+            recoveries=self.ep.rounds if self.ep else 0,
+            max_recoveries=self.max_rounds
+        )
+        if card != self.last_card:
+            self.last_card = card
+            msg = String(data=card)
+            if self.pub is not None:
+                self.pub.publish(msg)
+            if self.decision_pub is not None:
+                self.decision_pub.publish(msg)
+            if self.root_decision_pub is not None:
+                self.root_decision_pub.publish(msg)
+
     def _say(self, sev, text):
         if text == self.last_text:
             return
         self.last_text = text
-        # One call site per severity: rclpy refuses a call site whose
-        # severity changes between calls.
         if sev == 'error':
             self.get_logger().error(text)
         elif sev == 'warn':
             self.get_logger().warning(text)
         else:
             self.get_logger().info(text)
-        if self.pub is not None:
-            self.pub.publish(String(data=text))
+        self._update_status(sev)
 
     def _now(self):
         return self.get_clock().now().nanoseconds * 1e-9
 
+    def _periodic_tick(self):
+        now = self._now()
+        if self.ep is not None and self.activity in ('PLANNING', 'NAVIGATING'):
+            self._update_status()
+        elif self.activity == 'MANUAL_OVERRIDE_TELEOP':
+            if now - self.last_teleop > 2.0:
+                self.activity = 'IDLE'
+                # Preserve the actual last goal decision rather than wiping to NONE!
+                if self.decision != 'NONE':
+                    self.reason = f'Manual teleop released; idle. (Last goal: {self.decision})'
+                else:
+                    self.reason = 'Manual teleop released; idle. Watching Nav2 goals.'
+                self.dist_remaining = None
+                self.eta_sec = None
+                self._update_status()
+
     # ------------------------------------------------------------- inputs
+    def _feedback_cb(self, msg):
+        fb = msg.feedback
+        self.dist_remaining = float(fb.distance_remaining)
+        self.eta_sec = float(fb.estimated_time_remaining.sec + fb.estimated_time_remaining.nanosec * 1e-9)
+        if self.activity == 'PLANNING' and self.dist_remaining > 0:
+            self.activity = 'NAVIGATING'
+            self._update_status()
+
+    def _gps_cb(self, msg):
+        prev = self.gps_status
+        self.gps_status = int(msg.status.status)
+        self.gps_lat = float(msg.latitude)
+        self.gps_lon = float(msg.longitude)
+        if prev != self.gps_status and self.activity == 'WAITING_FOR_GPS_FIX' and self.gps_status >= 0:
+            self.activity = 'IDLE'
+            self.decision = 'NONE'
+            self.reason = 'GPS fix acquired; ready for goals'
+            self._update_status()
+
+    def _teleop_cb(self, _msg):
+        pass
+
     def _static_cb(self, msg):
         for t in msg.transforms:
             if t.header.frame_id.lstrip('/') == 'map' and t.child_frame_id.lstrip('/') == 'odom':
@@ -573,10 +735,14 @@ class NavStatus(Node):
         frame = msg.header.frame_id.lstrip('/') or 'map'
         moving = frame not in ('map',) and not (frame == 'odom' and self.map_odom_static)
         if moving:
-            self._say('warn', f'WARNING {hhmmss(now)}: a goal arrived on /goal_pose stamped in '
-                      f'\'{frame}\'. Nav2 Humble re-reads it at that stamp on every replan, '
-                      'so it fails ~10 s later unless reached by then. Use /athena/goal_click '
-                      'or the 3D display frame \'map\'')
+            self.decision = 'ACCEPTED_GOAL'
+            self.reason = (f"Goal stamped in '{frame}' intercepted: goal_manager auto-fixing to 'map' "
+                           "at current timestamp so it does NOT expire after 10 seconds.")
+            self._say('info', f'NOTE {hhmmss(now)}: goal arrived on /goal_pose stamped in \'{frame}\' '
+                      '(intercepted by goal_manager to prevent 10s TF buffer expiration)')
+        else:
+            self.decision = 'ACCEPTED_GOAL'
+            self.reason = f"Goal received on /goal_pose in '{frame}' frame."
         self._once(3.0, lambda: self._check_accepted(now))
 
     def _once(self, delay, fn):
@@ -590,30 +756,64 @@ class NavStatus(Node):
         holder['t'] = self.create_timer(delay, fire)
 
     def _check_accepted(self, t_click):
-        if self.ep is not None and self.ep.t0 >= t_click - 0.5:
+        if (self.ep is not None and self.ep.t0 >= t_click - 0.5) or \
+           (self.last_goal_start_time is not None and self.last_goal_start_time >= t_click - 0.5):
             return                                   # accepted, all good
         if self.count_publishers('/navigate_to_pose/_action/status') == 0:
+            self.activity = 'IDLE'
+            self.decision = 'REJECTED_GOAL'
+            self.reason = 'Goal never reached Nav2: navigate_to_pose action server is not running.'
             self._say('error', f'IGNORED {hhmmss(t_click)}: the clicked goal never reached Nav2: '
                       'the navigate_to_pose server is not running (Nav2 failed to start? '
                       'check lifecycle_manager in the Log tab)')
         else:
-            # Seen but not started can be a real rejection OR a /goal_pose
-            # message bt_navigator never received (a publisher that sent
-            # before discovery finished); from here the two look identical.
+            self.activity = 'IDLE'
+            self.decision = 'REJECTED_GOAL'
+            self.reason = 'Nav2 did not start the clicked goal within 3s: bt_navigator inactive or crashed.'
             self._say('error', f'REJECTED {hhmmss(t_click)}: Nav2 did not start the clicked '
                       'goal within 3 s. Either bt_navigator is not active (still starting, '
                       'or a Nav2 server crashed and lifecycle_manager deactivated the '
                       'stack), or the goal message never reached it: send it again')
 
     def _gm_cb(self, msg):
-        """goal_manager's own replies: mirror refusals so one tab tells all."""
+        """goal_manager's own replies: mirror refusals & decisions so one tab tells all."""
         t = msg.data.strip()
         low = t.lower()
+        now = self._now()
+        if 'waiting for valid 3d/rtk satellite fix' in low or 'no gps fix yet' in low:
+            self.activity = 'WAITING_FOR_GPS_FIX'
+            self.decision = 'REJECTED_GOAL'
+            self.reason = 'GPS goal rejected: waiting for valid 3D/RTK satellite fix (map has no geographic datum without GPS origin).'
+            self.target_str = 'GPS Goal (rejected)'
+            self.dist_remaining = None
+            self.eta_sec = None
+            self._say('error', f'REJECTED {hhmmss(now)} (goal_manager): {t}')
+            return
+
+        if 'auto-fixing /goal_pose' in low:
+            self.activity = 'NAVIGATING'
+            self.decision = 'ACCEPTED_GOAL'
+            self.reason = "Goal stamped in relative frame auto-fixed to 'map' at current timestamp to prevent 10s TF buffer expiration."
+            self._say('info', f'NOTE {hhmmss(now)} (goal_manager): {t}')
+            return
+
+        if low.startswith('goal cancelled by operator'):
+            self.activity = 'IDLE'
+            self.decision = 'CANCELED_GOAL'
+            self.reason = 'Goal canceled by operator via /athena/goal_text or /athena/goal_cancel.'
+            self.dist_remaining = None
+            self.eta_sec = None
+            self._say('info', f'CANCELED {hhmmss(now)}: {t}')
+            return
+
         if low.startswith('refused') or 'rejected' in low or 'unavailable' in low or \
                 'not available' in low or low.startswith('could not'):
             sev = 'error' if 'rejected' in low else 'warn'
             label = 'REJECTED' if 'rejected' in low else 'REFUSED'
-            self._say(sev, f'{label} {hhmmss(self._now())} (goal_manager): {t}')
+            self.activity = 'IDLE'
+            self.decision = 'REJECTED_GOAL'
+            self.reason = t
+            self._say(sev, f'{label} {hhmmss(now)} (goal_manager): {t}')
 
     def _rosout_cb(self, msg):
         if msg.name not in WATCHED_LOGGERS:          # cheap reject for ~all traffic
@@ -632,14 +832,25 @@ class NavStatus(Node):
         if key == 'nav2_down':
             what = f'{groups[0]} stopped responding (heartbeat lost; CPU overload?)' \
                 if groups else 'bring-up aborted (a server failed to configure)'
+            self.activity = 'STOPPED_BLOCKED'
+            self.decision = 'ABORTED_GOAL'
+            self.reason = f'Nav2 stack is down: {what}'
             self._say('error', f'NAV2 DOWN {hhmmss(now)}: {what}. Nav2 is inactive: every goal '
                       'will be rejected until navigation is restarted')
             return
         if key == 'nav2_up':
+            self.activity = 'IDLE'
+            self.decision = 'NONE'
+            self.reason = 'Nav2 is active and ready for goals'
             self._say('info', f'READY {hhmmss(now)}: Nav2 is active')
             return
         if key == 'teleop':
             self.last_teleop = now
+            if self.ep is None and self.activity != 'NAVIGATING':
+                self.activity = 'MANUAL_OVERRIDE_TELEOP'
+                self.decision = 'NONE'
+                self.reason = 'Manual control taken by teleop (teleop input detected).'
+                self._update_status()
             return
         if key == 'cancel_cmd':
             self.last_cancel_cmd = now
@@ -647,6 +858,8 @@ class NavStatus(Node):
         ep = self.ep
         if ep is None:
             if key == 'camera_stale':
+                self.costmap_state = 'Stale (camera silent >2s)'
+                self.reason = 'Depth camera silent (>2 s without point cloud): costmaps stale, navigation paused until camera resumes.'
                 self._say('warn', 'CAMERA: no depth cloud for >2 s: Nav2 will not plan or drive '
                           'until it returns (check the RealSense)')
             return
@@ -655,6 +868,16 @@ class NavStatus(Node):
         ep.add(key, now, groups[0] if groups else None)
         if key in FATAL and key not in ep.announced:
             ep.announced.add(key)
+            if key == 'collision':
+                self.costmap_state = 'Obstacle detected in path (collision ahead)'
+                self.reason = 'Lethal obstacle detected inside footprint or path on local costmap (collision ahead).'
+            elif key == 'no_progress':
+                self.reason = 'Rover did not move 0.3 m within 30 s (wheels may be stalling or deadband PWM too low).'
+            elif key == 'camera_stale':
+                self.costmap_state = 'Costmap stale (camera silent >2s)'
+                self.reason = 'Depth camera silent (>2 s without point cloud): costmaps stale, navigation paused.'
+            elif key == 'goal_tf':
+                self.reason = f"Goal stamped in '{ep.frame or 'base_link'}' expired after 10s: Nav2 replanning requires transforms within 10s buffer."
             text = explain_trouble(ep, key)
             if text:
                 self._say('warn', text)
@@ -663,8 +886,6 @@ class NavStatus(Node):
         ep = self.ep
         if ep is None:
             return
-        # A parent's transition is logged after its child's, so count the
-        # round first and describe the action afterwards.
         action = None
         for e in msg.event_log:
             name = e.node_name
@@ -679,13 +900,14 @@ class NavStatus(Node):
             cause = f' | cause: {SHORT[key]} x{ep.ev[key]["n"]}' if key else ''
             used = ep.inherited + max(ep.rounds, 1)
             shared = f' ({ep.inherited} used by the replaced goal)' if ep.inherited else ''
+            self.activity = f'RECOVERING ({action})'
+            self.decision = 'RECOVERY_TRIGGERED'
+            self.reason = f'Obstacle or planner trouble encountered; {action} (round {used}/{self.max_rounds}){cause}'
             self._say('warn', f'RECOVERING {used}/{self.max_rounds}{shared}: '
                       f'{action}{cause}')
 
     def _status_cb(self, msg):
         now = self._now()
-        # Only the latched message delivered on connect is history.  If no
-        # goal ever ran, the first message is a live one and must count.
         first = not self.primed and now - self.t_start < 2.0
         self.primed = True
         for st in msg.status_list:
@@ -702,9 +924,18 @@ class NavStatus(Node):
                 if prev not in ACTIVE:
                     self._start(gid, now, False)
             elif st.status in STATUS_NAME:
+                outcome = STATUS_NAME[st.status]
+                # Preemption check: if another goal in the status array is ACTIVE, this goal was replaced
+                if outcome == 'ABORTED':
+                    has_other_active = any(
+                        s.status in ACTIVE and bytes(s.goal_info.goal_id.uuid).hex() != gid
+                        for s in msg.status_list
+                    )
+                    if has_other_active:
+                        outcome = 'REPLACED'
                 if prev is None:                     # whole life between two messages
                     self._start(gid, now, False)
-                self._end(gid, STATUS_NAME[st.status], now)
+                self._end(gid, outcome, now)
         if len(self.status) > 200:                   # rcl_action keeps 15 min of goals
             live = {bytes(s.goal_info.goal_id.uuid).hex() for s in msg.status_list}
             self.status = {k: v for k, v in self.status.items() if k in live}
@@ -714,8 +945,13 @@ class NavStatus(Node):
         t, start, target = self.pending_begin
         ep.start, ep.target = start, target
         self.pending_begin = None
+        self.target_str = fmt_goal(ep)
+        self.last_target_str = self.target_str
+        self.reason = f'Nav2 accepted goal; driving to {self.target_str}'
+        self._update_status()
 
     def _start(self, gid, now, already_running):
+        self.last_goal_start_time = now
         inherited = 0
         if self.ep is not None and self.ep.goal_id != gid:
             inherited = self.ep.inherited + self.ep.rounds
@@ -729,9 +965,19 @@ class NavStatus(Node):
             msg = self.raw_goal[1]
             ep.frame = msg.header.frame_id.lstrip('/') or 'map'
             ep.stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+            if ep.target is None:
+                ep.target = (msg.pose.position.x, msg.pose.position.y)
         else:
             ep.frame = 'map'                         # goal_manager, waypoints, relay
         self.ep = ep
+
+        self.activity = 'NAVIGATING'
+        self.decision = 'ACCEPTED_GOAL'
+        self.target_str = fmt_goal(ep)
+        self.last_target_str = self.target_str
+        self.costmap_state = 'Nominal (local costmap active)'
+        self.reason = f'Nav2 accepted goal; navigating to {self.target_str}'
+
         where = ''
         if ep.target:
             where = f' to ({ep.target[0]:.2f}, {ep.target[1]:.2f}) {ep.frame}'
@@ -742,7 +988,12 @@ class NavStatus(Node):
         ep = self.ep
         if ep is None or ep.goal_id != gid:
             return
+        self.last_target_str = fmt_goal(ep)
         self.ep = None
+        self.target_str = f"None (idle; last: {self.last_target_str})"
+        self.dist_remaining = None
+        self.eta_sec = None
+
         if ep.replaced and outcome == 'ABORTED':
             outcome = 'REPLACED'
         if outcome == 'CANCELED':
@@ -750,8 +1001,73 @@ class NavStatus(Node):
                 ep.cancel_source = 'teleop'
             elif now - self.last_cancel_cmd < 3.0:
                 ep.cancel_source = 'cancel_cmd'
+
+        prior_trouble = ''
+        if ep.ev:
+            key = ep.deciding(now)
+            if key == 'no_progress':
+                prior_trouble = 'rover was not moving 0.3 m in 30 s (stalled)'
+            elif key == 'no_path':
+                prior_trouble = 'route was blocked on costmap (no path)'
+            elif key == 'collision':
+                prior_trouble = 'lethal obstacle was detected in path'
+            elif key == 'goal_tf':
+                prior_trouble = 'goal timestamp expired after 10 s'
+            elif key == 'robot_tf':
+                prior_trouble = 'robot pose transform was too old'
+
+        if outcome == 'SUCCEEDED':
+            self.activity = 'IDLE'
+            self.decision = 'SUCCEEDED_GOAL'
+            self.dist_remaining = 0.0
+            self.eta_sec = 0.0
+            self.reason = 'Goal reached successfully within tolerance'
+            self.costmap_state = 'Nominal (goal reached)'
+        elif outcome == 'CANCELED':
+            self.decision = 'CANCELED_GOAL'
+            if ep.cancel_source == 'teleop' or (now - self.last_teleop < 3.0):
+                self.activity = 'MANUAL_OVERRIDE_TELEOP'
+                if prior_trouble:
+                    self.reason = f'Manual control taken by teleop (teleop input detected); prior trouble: {prior_trouble}.'
+                else:
+                    self.reason = 'Manual control taken by teleop (teleop input detected).'
+            else:
+                self.activity = 'IDLE'
+                if prior_trouble:
+                    self.reason = f'Goal canceled by operator; prior trouble: {prior_trouble}.'
+                else:
+                    self.reason = 'Goal canceled by operator command via /athena/goal_text or /athena/goal_cancel.'
+        elif outcome == 'REPLACED':
+            self.activity = 'PLANNING'
+            self.decision = 'REPLACED_GOAL'
+            self.reason = 'Goal replaced by a newer incoming goal.'
+        elif outcome == 'ABORTED':
+            key = ep.deciding(now)
+            if key in ('collision', 'no_progress', 'no_path', 'goal_tf', 'robot_tf', 'camera_stale'):
+                self.activity = 'STOPPED_BLOCKED'
+            else:
+                self.activity = 'IDLE'
+            self.decision = 'ABORTED_GOAL'
+            if key == 'goal_tf':
+                self.reason = f"Goal stamped in '{ep.frame or 'base_link'}' expired after 10s: Nav2 replanning requires transforms within 10s buffer."
+            elif key == 'collision':
+                self.reason = "Lethal obstacle detected inside footprint or path on local costmap (collision ahead)."
+                self.costmap_state = "Lethal obstacle detected in path"
+            elif key == 'no_progress':
+                self.reason = "Rover did not move 0.3 m within 30 s (wheels may be stalling or deadband PWM too low)."
+            elif key == 'camera_stale':
+                self.reason = "Depth camera silent (>2 s without point cloud): costmaps stale, navigation paused."
+                self.costmap_state = "Costmap stale (camera silent >2s)"
+            elif key == 'robot_tf':
+                self.reason = "Robot pose transform too old: EKF lagging or Jetson CPU overloaded."
+            elif key == 'no_path':
+                self.reason = "Planner found no path to the goal: route is completely blocked on global costmap."
+            else:
+                self.reason = f"Goal aborted by Nav2: {SHORT.get(key, 'no specific reason logged')}"
+
         sev, text = explain_end(ep, outcome, now, None, self.xy_tol)
         self._say(sev, text)
+
         # Then look at the world once and refine the line if that adds anything.
         if outcome in ('ABORTED', 'SUCCEEDED') and self.inspect:
             def done(insp, ep=ep, outcome=outcome, now=now):
@@ -759,9 +1075,27 @@ class NavStatus(Node):
                 if insp.get('error'):
                     self.get_logger().debug(f'probe failed: {insp["error"]}')
                     return
+
+                if insp.get('lethal_in_footprint', 0) > 0:
+                    self.costmap_state = f"BLOCKED: {insp['lethal_in_footprint']} lethal cells inside footprint"
+                elif insp.get('lethal_ahead_m') is not None:
+                    self.costmap_state = f"BLOCKED: nearest lethal cell {insp['lethal_ahead_m']:.2f} m ahead"
+                elif insp.get('lethal_in_sweep', 0) > 0:
+                    self.costmap_state = f"BLOCKED: {insp['lethal_in_sweep']} lethal cells in turning sweep"
+                elif insp.get('goal_cell') == 'lethal':
+                    self.costmap_state = "BLOCKED: goal point is INSIDE an obstacle"
+
+                if outcome == 'ABORTED' and self.decision == 'ABORTED_GOAL':
+                    if insp.get('lethal_in_footprint', 0) > 0:
+                        self.reason = f"Lethal obstacle detected inside footprint ({insp['lethal_in_footprint']} cells: stale costmap memory)."
+                    elif insp.get('lethal_ahead_m') is not None:
+                        self.reason = f"Lethal obstacle detected in path: {insp['lethal_ahead_m']:.2f} m ahead of bumper."
+
                 sev2, text2 = explain_end(ep, outcome, now, insp, self.xy_tol)
                 if text2 != text and self.ep is None:      # a new goal outranks this
                     self._say(sev2, text2)
+                else:
+                    self._update_status(sev2)
             self.closing = ep
             Probe(self, outcome == 'ABORTED', done)
 
@@ -781,3 +1115,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+

@@ -173,3 +173,98 @@ def test_cancel_by_teleop():
     ep.add('collision', 102)
     sev, text = explain_end(ep, 'CANCELED', 105)
     assert 'manual control taken' in text and 'collision' in text
+
+
+def test_format_status_card_idle():
+    from athena_remote.nav_status import format_status_card
+    card = format_status_card(
+        activity='IDLE',
+        decision='NONE',
+        reason='Watching Nav2 goals (clicked, typed, waypoint, any client)',
+        target=None,
+        dist_rem=None,
+        eta=None,
+        elapsed=None,
+        fix_state='3D Fix (status=0)',
+        costmap_state='Nominal',
+        recoveries=0
+    )
+    assert '[ATHENA STATUS] IDLE | NONE' in card
+    assert 'Activity:       IDLE' in card
+    assert 'Decision:       NONE' in card
+    assert 'Dist Remaining: N/A' in card
+    assert 'GPS Fix State:  3D Fix (status=0)' in card
+    assert 'Active Costmap: Nominal' in card
+
+
+def test_format_status_card_navigating():
+    from athena_remote.nav_status import format_status_card
+    card = format_status_card(
+        activity='NAVIGATING',
+        decision='ACCEPTED_GOAL',
+        reason='Nav2 accepted goal; driving to target',
+        target='(4.01, 0.34) map',
+        dist_rem=3.42,
+        eta=9.8,
+        elapsed=4.0,
+        fix_state='3D Fix (status=0) [25.262955, 82.983828]',
+        costmap_state='Nominal (local costmap active)',
+        recoveries=0
+    )
+    assert '[ATHENA STATUS] NAVIGATING | ACCEPTED_GOAL' in card
+    assert 'Activity:       NAVIGATING' in card
+    assert 'Decision:       ACCEPTED_GOAL' in card
+    assert 'Target:         (4.01, 0.34) map' in card
+    assert 'Dist Remaining: 3.42 m' in card
+    assert 'Estimated Time: 9.8 s (elapsed: 4 s)' in card
+    assert 'GPS Fix State:  3D Fix (status=0) [25.262955, 82.983828]' in card
+
+
+def test_format_status_card_stopped_blocked():
+    from athena_remote.nav_status import format_status_card
+    card = format_status_card(
+        activity='STOPPED_BLOCKED',
+        decision='ABORTED_GOAL',
+        reason='Lethal obstacle detected inside footprint or path on local costmap (collision ahead).',
+        target='(3.00, 0.00) map',
+        dist_rem=1.25,
+        eta=None,
+        elapsed=18.0,
+        fix_state='3D Fix (status=0)',
+        costmap_state='BLOCKED: nearest lethal cell 0.15 m ahead',
+        recoveries=6
+    )
+    assert 'Activity:       STOPPED_BLOCKED' in card
+    assert 'Decision:       ABORTED_GOAL' in card
+    assert 'collision ahead' in card
+    assert 'Recovery Count: 6/6' in card
+
+
+def test_format_status_card_waiting_for_gps():
+    from athena_remote.nav_status import format_status_card
+    card = format_status_card(
+        activity='WAITING_FOR_GPS_FIX',
+        decision='REJECTED_GOAL',
+        reason='GPS goal rejected: waiting for valid 3D/RTK satellite fix.',
+        target='GPS Goal (rejected)',
+        dist_rem=None,
+        eta=None,
+        elapsed=None,
+        fix_state='NO_FIX (searching for satellites)',
+        costmap_state='Nominal',
+        recoveries=0
+    )
+    assert 'Activity:       WAITING_FOR_GPS_FIX' in card
+    assert 'Decision:       REJECTED_GOAL' in card
+    assert 'waiting for valid 3D/RTK satellite fix' in card
+
+
+def test_root_cause_explanations():
+    from athena_remote.nav_status import ROOT_CAUSE_EXPLANATIONS
+    assert 'Goal stamped in' in ROOT_CAUSE_EXPLANATIONS['goal_tf']
+    assert '10s buffer' in ROOT_CAUSE_EXPLANATIONS['goal_tf']
+    assert 'Lethal obstacle detected' in ROOT_CAUSE_EXPLANATIONS['collision']
+    assert '0.3 m within 30 s' in ROOT_CAUSE_EXPLANATIONS['no_progress']
+    assert 'Manual control taken by teleop' in ROOT_CAUSE_EXPLANATIONS['teleop']
+    assert 'waiting for valid 3D/RTK satellite fix' in ROOT_CAUSE_EXPLANATIONS['no_gps']
+

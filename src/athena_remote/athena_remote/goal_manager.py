@@ -116,6 +116,7 @@ class GoalManager(Node):
         self.create_subscription(String, '/athena/goal_text', self._text_cb, 10)
         self.create_subscription(Empty, '/athena/goal_cancel', self._cancel_cb, 10)
         self.create_subscription(PoseStamped, '/athena/goal_click', self._click_cb, 10)
+        self.create_subscription(PoseStamped, '/goal_pose', self._goal_pose_cb, 10)
 
         self._goal_handle = None
 
@@ -173,17 +174,12 @@ class GoalManager(Node):
         else:
             self._say(f'expected 2 or 3 numbers, got {len(nums)}')
 
-    def _click_cb(self, msg):
-        """A pose clicked in the 3D panel: re-express it in map, once.
-
-        Looked up at the click's own stamp first, which is what the operator
-        saw (the panel can lag the rover by a second over the tunnel); the
-        latest transform is the fallback when that stamp is outside the TF
-        buffer, e.g. a laptop clock that disagrees with the Jetson's.
-        """
+    def _transform_to_map(self, msg, source_label):
+        """Transform a PoseStamped into self.map_frame with current timestamp."""
         frame = msg.header.frame_id.lstrip('/') or self.map_frame
         if frame == self.map_frame:
-            pose, how = PoseStamped(pose=msg.pose), 'map'
+            pose = PoseStamped(pose=msg.pose)
+            how = 'map'
         else:
             tr, err = None, None
             for when, label in ((rclpy.time.Time.from_msg(msg.header.stamp), 'at click time'),
@@ -195,22 +191,64 @@ class GoalManager(Node):
                 except tf2_ros.TransformException as e:
                     err = e
             if tr is None:
-                self._say(f'refused clicked goal: no {self.map_frame} <- {frame} '
+                self._say(f'refused {source_label}: no {self.map_frame} <- {frame} '
                           f'transform ({type(err).__name__})')
-                return
+                return None, None
             pose = tf2_geometry_msgs.do_transform_pose_stamped(msg, tr)
 
         # The planner is 2D: keep the heading, drop roll, pitch and height.
         q = pose.pose.orientation
+        if q.x == 0.0 and q.y == 0.0 and q.z == 0.0 and q.w == 0.0:
+            q.w = 1.0
         yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
         pose.pose.position.z = 0.0
         (pose.pose.orientation.x, pose.pose.orientation.y,
          pose.pose.orientation.z, pose.pose.orientation.w) = yaw_to_quat(yaw)
         pose.header.frame_id = self.map_frame
         pose.header.stamp = self.get_clock().now().to_msg()
+        return pose, how
 
+    def _click_cb(self, msg):
+        """A pose clicked in the 3D panel: re-express it in map, once.
+
+        Looked up at the click's own stamp first, which is what the operator
+        saw (the panel can lag the rover by a second over the tunnel); the
+        latest transform is the fallback when that stamp is outside the TF
+        buffer, e.g. a laptop clock that disagrees with the Jetson's.
+        """
+        pose, how = self._transform_to_map(msg, 'clicked goal')
+        if pose is None:
+            return
         self._publish_marker(pose)
         self._send_nav_goal(pose, f'clicked pose ({how})')
+
+    def _goal_pose_cb(self, msg):
+        """Intercept direct clicks to /goal_pose.
+
+        If a goal arrives stamped in 'base_link' or 'odom', Foxglove clicked it in a
+        moving display frame. Nav2 Humble replans at the original stamp, which expires
+        after 10s from TF buffer. We transform it into 'map' at current timestamp,
+        so it never expires.
+        """
+        frame = msg.header.frame_id.lstrip('/') or self.map_frame
+        if frame == self.map_frame:
+            return  # Already map frame, planner does not retransform across frames
+
+        if math.isnan(msg.pose.position.x) or math.isnan(msg.pose.position.y):
+            self._say('refused /goal_pose: NaN coordinates')
+            return
+
+        self.get_logger().info(
+            f'Intercepted /goal_pose stamped in "{frame}". Auto-fixing to "{self.map_frame}" '
+            'with current timestamp to prevent 10s TF expiration.')
+        self._say(
+            f'auto-fixing /goal_pose from {frame}: re-stamping in {self.map_frame} to prevent TF expiration')
+
+        pose, how = self._transform_to_map(msg, '/goal_pose')
+        if pose is None:
+            return
+        self._publish_marker(pose)
+        self._send_nav_goal(pose, f'auto-fixed /goal_pose ({how})')
 
     def _cancel_cb(self, _msg):
         if self._goal_handle is None:
@@ -218,16 +256,15 @@ class GoalManager(Node):
             return
         self._goal_handle.cancel_goal_async()
         self._goal_handle = None
-        self._say('goal cancelled')
+        self._say('goal cancelled by operator')
 
     # ------------------------------------------------------------- action
     def _go_to_ll(self, lat, lon, yaw):
         if self.require_fix and not self.have_fix:
             self._say(
-                'refused: no GPS fix yet, so the map has no geographic origin. '
-                'Every lat/lon would convert to map (0,0) and the rover would '
-                'drive to the wrong place. Wait for a fix, or send a map-frame '
-                'goal by clicking in the 3D panel instead.')
+                'refused: GPS goal rejected: waiting for valid 3D/RTK satellite fix. '
+                'Map has no geographic datum without GPS origin. '
+                'Wait for a fix, or send a map-frame goal by clicking in the 3D panel instead.')
             return
         if not self.fromll.wait_for_service(timeout_sec=self.fromll_timeout):
             self._say('/fromLL unavailable. Navsat_transform is not running, '

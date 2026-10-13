@@ -1,170 +1,190 @@
-# Troubleshooting and known limitations
+# Troubleshooting & Fault Resolution Guide
 
-Start with `ros2 run athena_gps_nav stack_check` (see
-[TESTING.md](TESTING.md#health-check)); it names the broken link. Tuning
-symptoms (overshoot, yawing in place, smeared obstacles) are in
-[TUNING.md](TUNING.md#symptom-table). Back to the [package README](../README.md).
+Systematic fault isolation and diagnostic procedures for the Athena autonomy platform.
 
-| Symptom | Go to |
-|---|---|
-| `ros2 topic list` is empty from a non-interactive shell | the shell is on domain 0: `export ROS_DOMAIN_ID=42` ([why](../../athena_remote/README.md#option-b-ros-cli-over-ssh)) |
-| IMU rate low, MAVLink errors, `link corruption` above a few percent | [Pixhawk link](#check-the-pixhawk-link-before-blaming-gps-or-imu) |
-| Pixhawk missing, or disconnects | [Pixhawk missing or silent](#pixhawk-missing-or-silent) |
-| `fix_type=0`, no satellites | [GPS has no fix](#gps-has-no-fix) |
-| Both costmaps empty, everything else healthy | [Costmap is empty](#costmap-is-empty) |
-| `Frames didn't arrived within 5 seconds` | [Camera stalls silently](#camera-stalls-silently) |
-| `std::bad_array_new_length` from rtabmap | [rtabmap crashes instantly](#rtabmap-crashes-instantly) |
-| Rover turns exactly 90 degrees left | the stock behaviour tree is in use ([TUNING.md](TUNING.md#recovery-behaviour)); or a phantom obstacle, check with `mount_check.py costmap` |
-| `/cmd_vel` publishes but wheels do not turn | the Pico's serial port is held by another process, or the Pico is not answering: [athena_drive README](../../athena_drive/README.md#safety) |
+---
 
-## Check the Pixhawk link before blaming GPS or IMU
+## Quick Symptom Reference
 
-`pixhawk_bridge` prints this every 10 s:
+| Symptom | Diagnostic Tool | Primary Root Cause & Resolution Section |
+|---|---|---|
+| **Fix stuck at 3D / DGPS, never engages RTK** | `gps_diagnose --rtcm-host` | [RTCM Correction Stream Failure](#1-rtcm-correction-stream-failure) |
+| **Fix flaps between RTK Float and RTK Fixed** | `gps_diagnose` | [RTK Float vs Fixed Instability](#2-rtk-float-vs-fixed-instability) |
+| **`fix_type: 0` (No GPS Device)** | `gps_diagnose` | [DroneCAN GPS Wiring & CAN Bus](#3-dronecan-gps-wiring--hardware-issues) |
+| **Flight controller disconnected or not found** | `ls /dev/serial/by-id` | [Serial Device Identification](#4-cube-orange-serial-identification) |
+| **High MAVLink corruption (>5%) / low IMU rate** | `pixhawk_bridge` log | [MAVLink Serial Overrun](#5-mavlink-serial-link-corruption) |
+| **Costmaps completely empty despite camera running** | `ros2 topic info` | [RealSense NEON Point Cloud Namespace](#6-costmaps-empty--camera-issues) |
+| **Camera stalls silently (`Frames didn't arrive`)** | `dmesg` | [USB Autosuspend Power Lock](#6-costmaps-empty--camera-issues) |
+| **Rover yaws in place instead of driving to goal** | `mount_check.py costmap` | [Lookahead & Footprint Obstacle Trap](#7-motion--controller-faults) |
+| **Pico serial port held / motors not turning** | `fuser` | [Pico W Serial Contention](#7-motion--controller-faults) |
+
+---
+
+## 1. RTCM Correction Stream Failure
+
+### Symptoms
+- `pixhawk_bridge` logs: `no RTCM from base $BASE_STATION_IP:2101 for Xs - fix will fall back to standalone GPS`.
+- Fix remains at `3D FIX` (`fix_type: 3`) despite clear sky view.
+
+### Diagnostic Steps
+
+1. **Verify Base Station Network Reachability:**
+   ```bash
+   nc -zv $BASE_STATION_IP 2101
+   ```
+   If connection is refused or times out:
+   - Confirm the base station computer is powered on and STRSVR / `str2str` / NTRIP caster is running.
+   - Ensure `$BASE_STATION_IP` environment variable is defined:
+     ```bash
+     echo "Target RTCM Host: $BASE_STATION_IP"
+     ```
+
+2. **Inspect Bridge RTCM Injection Telemetry:**
+   Review the periodic `pixhawk_bridge` 10-second health log:
+   ```
+   RTK: 3D FIX, hAcc 0.820 m, RTCM last 10 s [1005:1 1077:10 1087:10], data age 0.4s, bad CRC 0
+   ```
+   - **`RTCM last 10 s [none]` or `data age > 10.0s`:** No RTCM frames received from the network.
+   - **`bad CRC > 0`:** Network MTU fragmentation or byte corruption.
+
+3. **Verify Flight Controller Forwarding Parameters (Cube Orange):**
+   Ensure ArduPilot is configured to forward incoming RTCM packets to the DroneCAN bus:
+   - `GPS_INJECT_TO = 127` (relays RTCM packets to all GNSS receivers).
+   - `GPS1_TYPE = 9` (DroneCAN driver).
+   - `MAVLINK20 = 1` (MAVLink 2 packet framing required for RTCM injection).
+
+---
+
+## 2. RTK Float vs Fixed Instability
+
+### Symptoms
+- Fix type alternates between 5 (`RTK FLOAT`) and 6 (`RTK FIXED`).
+- Horizontal accuracy `h_acc` hovers between 0.15 m and 0.40 m instead of dropping $<0.03\text{ m}$.
+
+### Root Causes & Solutions
+
+| Cause | Mechanism | Resolution |
+|---|---|---|
+| **Multipath & Occlusion** | Concrete walls, metallic structures, or tree foliage reflect carrier-phase signals. | Move the rover into an open area with an unobstructed horizon ($\ge 15^\circ$ elevation angle). |
+| **Low Satellite Count** | Fewer than 16 common satellites tracked between rover and base. | Inspect satellite count with `gps_diagnose.py`. Verify base station tracks GPS + GLONASS + Galileo + BeiDou. |
+| **Baseline Distance** | Rover is $>15\text{ km}$ from the base station antenna. | Ionospheric divergence prevents integer ambiguity resolution. Shorten baseline distance. |
+| **Antenna Cable Noise** | Loose SMA / u.FL connector or pinched coaxial line. | Inspect RF cable and ensure antenna ground plane is securely mounted. |
+
+---
+
+## 3. DroneCAN GPS Wiring & Hardware Issues
+
+### Symptoms
+- `gps_diagnose.py` reports: `best fix_type : 0 - NO GPS (receiver not reporting)`.
+- `pixhawk_bridge` reports `fix_type=0, sats=255`.
+
+### Isolation Procedure
 
 ```
-imu msgs: 489 ..., gps msgs: 50 (fix_type=3, sats=11), link corruption: 0.0%
+[DroneCAN GPS] === CAN Bus (120 Ohm Termination) ===> [Cube Orange CAN1]
 ```
 
-Anything above a few percent means the serial link is overrunning and **every**
-sensor downstream degrades. Measured on this FMU:
+1. **Verify Physical Bus Connections:**
+   - The DroneCAN RTK GNSS module must connect to the **CAN1** port on the Cube Orange carrier board (or CAN2 if configured).
+   - Verify CAN bus termination resistors: exactly **120 $\Omega$** termination at each end of the CAN bus (~60 $\Omega$ across CAN_H and CAN_L with power off).
+2. **Verify ArduPilot CAN Driver Parameters:**
+   Connect via Mission Planner or MAVProxy:
+   - `CAN_P1_DRIVER = 1` (Enables CAN Port 1).
+   - `CAN_D1_PROTOCOL = 1` (DroneCAN protocol enabled on Port 1).
+   - `GPS1_TYPE = 9` (DroneCAN GNSS).
+3. **Electrical Intermittent Faults:**
+   If `gps_diagnose` reports `transitions >= 2` between fix 0 and non-zero:
+   - Reseat the 4-pin JST-GH CAN connector.
+   - Check the 5V power supply rail on the carrier board.
 
-| baud | good frames / 18 s | corrupt | usable IMU |
-|---|---|---|---|
-| 115200 | 91 | **33.1 %** | 11 |
-| **921600** | **1082** | **8.0 %** | **129** |
+---
 
-After also silencing streams the node never reads, corruption drops to **0.0 %**.
-`baud` therefore defaults to **921600**. The old `athena_slam` nodes used 115200,
-which is why they behaved erratically.
+## 4. Cube Orange Serial Identification
 
-## Pixhawk missing or silent
+### Symptoms
+- `pixhawk_bridge` fails with: `No such file or directory: /dev/serial/by-id/...`
+- Serial link maps to the wrong USB device.
 
-Signature of a failing USB cable seen on this rover:
+### Diagnostic Procedure
 
-```
-usb 1-2-port1: Cannot enable. Maybe the USB cable is bad?
-usb 1-2.1: can't read configurations, error -32
-usb 1-2-port1: unable to enumerate USB device
-```
+List all connected USB serial devices:
 
 ```bash
-sudo dmesg | grep 'usb 1-2.1'         # disconnect history
-lsusb | grep 26ac                     # on the bus?
-ls /dev/serial/by-id/ | grep -i px4   # serial node present?
+ls -l /dev/serial/by-id/
 ```
 
-Visible in `lsusb` but **no serial node**, or a node with no heartbeat, means the
-physical link is failing. Every disconnect reboots the FMU and cold-restarts the
-GPS, which is the usual reason a fix never holds. Swap the cable first, then try
-another port. Re-binding the parent hub sometimes revives it temporarily:
+*Expected output:*
+```
+usb-Hex_ProfiCNC_CubeOrange_XXXXXX-if00 -> ../../ttyACM0
+usb-Raspberry_Pi_Pico_XXXXXX-if00      -> ../../ttyACM1
+```
 
+> [!IMPORTANT]
+> `pixhawk_bridge.py` auto-detects ports by matching substrings in `/dev/serial/by-id/`:
+> `('ArduPilot', 'Ardu', 'CubeOrange', 'Cube', 'Pixhawk', 'PX4')`.
+> Never hardcode `/dev/ttyACM0` in launch files.
+
+If the device does not enumerate in `/dev/serial/by-id/`:
 ```bash
-sudo sh -c 'echo 1-2 > /sys/bus/usb/drivers/usb/unbind'
-sudo sh -c 'echo 1-2 > /sys/bus/usb/drivers/usb/bind'
+dmesg | tail -n 25
+lsusb | grep -i "hex\|proficnc\|26ac"
 ```
+If absent from `lsusb`, replace the USB-C telemetry cable and ensure the Jetson USB port provides adequate power.
 
-## GPS has no fix
+---
 
-```bash
-# stop the stack first: this needs exclusive access to the serial port
-ros2 run athena_gps_nav gps_diagnose --seconds 120
-```
+## 5. MAVLink Serial Link Corruption
 
-`gps_diagnose` is **not a ROS node**: it talks to the FMU with pymavlink and
-parses its own `argparse` flags (`--seconds`, `--port`, `--baud`).
-`--ros-args -p seconds:=120` is silently ignored and you get the 30 s default.
-It exits 0 on a 3D fix, 1 with no GPS telemetry at all, 2 with telemetry but no
-usable fix.
+### Symptoms
+- `pixhawk_bridge` logs: `link corruption: X%` where $X > 5\%$.
+- Sensor update rates drop ($<30\text{ Hz}$ on IMU).
 
-| fix_type | Meaning |
-|---|---|
-| **0** | "no GPS device": read the caveat below |
-| **1** | receiver present, no lock: go outside and wait |
-| 2 | 2D only, no altitude |
-| **3+** | 3D fix: what `navsat_transform` needs |
+### Technical Cause & Fix
 
-**Caveat:** on this PX4 build a receiver that is merely *searching* also reports
-`fix_type=0`, `sats=0` and "GPS not present", indistinguishable from an unplugged
-module. It once sat like that for over two hours and then acquired normally. **Do
-not call it a hardware fault from `fix_type=0` alone**: give it 30+ minutes with
-sky view.
+At standard 115200 baud, high-rate IMU (50 Hz), GPS (5 Hz), and RTCM injection saturate the serial link, resulting in 33% packet corruption.
+- **Enforce 921600 Baud:**
+  Both `pixhawk_bridge` and ArduPilot serial parameters (`SERIALx_BAUD=921`) must operate at **921600 baud**.
+- **Unused Stream Suppression:**
+  `pixhawk_bridge` automatically disables unused high-bandwidth MAVLink streams (`ODOMETRY`, `LOCAL_POSITION_NED`, `ATTITUDE_QUATERNION`) via `MAV_CMD_SET_MESSAGE_INTERVAL` to keep serial bandwidth utilization low.
 
-**Current state on this rover:** the module powers up and talks to the Pixhawk
-cleanly (thousands of messages, zero link corruption) but reports zero satellites
-indoors and outdoors. The software path is ruled out; the remaining candidates are
-the antenna and the RF path. `/gps/fix` still carries a lat/lon with `status: -1`
-and a large covariance, so a position appears on the map that is not a fix.
+---
 
-Already ruled out, no need to retest: pymavlink's 1200-baud probe does **not**
-reboot the FMU; heavy telemetry load does **not** starve the GPS task; the bridge is
-**not** at fault (MAVROS reports identically; use it as a referee):
+## 6. Costmaps Empty & Camera Issues
 
-```bash
-ros2 launch mavros px4.launch \
-  fcu_url:=/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00:921600
-ros2 topic echo /mavros/global_position/raw/fix --once
-```
+### 1. Jetson NEON Point Cloud Parameter Namespace
+On NVIDIA Jetson platforms, `librealsense` utilizes NEON-accelerated point cloud processing blocks named **`pointcloud__neon_`**, whereas standard x86 systems use `pointcloud`.
+- If only `pointcloud.enable: True` is configured, point cloud generation fails **silently**.
+- `sensors.launch.py` explicitly enables both namespaces:
+  ```python
+  'pointcloud.enable': True,
+  'pointcloud__neon_.enable': True,
+  'pointcloud__neon_.ordered_pc': False,
+  ```
 
-## Costmap is empty
-
-The RealSense pointcloud filter's parameter namespace is named after the
-librealsense processing block, and on this Jetson it is **`pointcloud__neon_`**,
-not `pointcloud`. Setting `pointcloud.enable: True` fails **silently**: no cloud,
-both costmaps empty, everything else healthy. `sensors.launch.py` sets both names.
-
-```bash
-ros2 topic info /camera/camera/depth/color/points   # Publisher count must be 1
-ros2 param list /camera/camera | grep -i pointcloud # find the real namespace
-```
-
-## Camera stalls silently
-
-Streams stop with `Frames didn't arrived within 5 seconds` despite a healthy USB 3
-link. USB autosuspend was the cause; a udev rule now pins `power/control=on`. To
-recover:
-
+### 2. Camera Autosuspend Disconnection
+If the RealSense driver logs `Frames didn't arrived within 5 seconds`:
+Recover the USB bus immediately without rebooting:
 ```bash
 sudo sh -c 'echo 2-1.3 > /sys/bus/usb/drivers/usb/unbind'
 sudo sh -c 'echo 2-1.3 > /sys/bus/usb/drivers/usb/bind'
 ```
 
-## rtabmap crashes instantly
+---
 
-`std::bad_array_new_length` on startup means `~/rtab` is being sourced. That
-source build has been ABI-broken since the Aug 2026 apt upgrade. Use the apt
-package (`ros-humble-rtabmap-odom`) and remove `~/rtab` from `.bashrc`.
+## 7. Motion & Controller Faults
 
-## Known limitations
+### 1. Lookahead Trap (Rover Yaws in Place)
+- **Symptom:** When a goal is dispatched, the rover spins left/right in place instead of advancing along the path.
+- **Cause:** Lookahead distance set too small or scaled with velocity ($v_x = 0$ at start $\to$ carrot lands inside 0.65 m chassis footprint).
+- **Check:** Ensure `config/nav2_params.yaml` has `use_velocity_scaled_lookahead_dist: false` and `lookahead_dist: 1.0`.
 
-- **GPS absolute accuracy is +-3.5 m 1-sigma, measured**, even at HDOP 0.98: a
-  receiver floor, not a tuning one; RTK is the only route to sub-metre. It is
-  *absolute* error: goal and robot pose live in the same map frame and wander
-  together, so Nav2 still converges on `xy_goal_tolerance: 0.5`; the rover just
-  ends up within +-3.5 m of where you meant. If it hunts near a goal, widen the
-  tolerance rather than tightening it.
-- Indoor GPS wanders tens of metres from multipath; every map-frame view inherits
-  that. Only odom-frame behaviour is meaningful indoors.
-- Visual odometry needs texture and depth in view; a blank wall at 30 cm resets
-  tracking repeatedly. People moving in the camera's view register as robot motion
-  (`vio_gate` drops the big spikes; keep the scene still for clean numbers).
-- The depth camera has a ~0.2 m minimum range and ~87 degree horizontal field of
-  view, and the downsampler also drops returns closer than 0.25 m as self-hits.
-  Anything closer, directly behind, or outside that cone is invisible. The costmap
-  remembers what it saw, but a rover turning in place only clears what the camera
-  sees now.
-- **There is no rear-facing sensor.** That is why Spin and BackUp were removed from
-  the behaviour tree and a failed goal now stops rather than manoeuvring. Reversing
-  this rover is an operator decision.
-- Absolute heading is not fused; map yaw is dead-reckoned
-  ([TUNING.md](TUNING.md#heading-the-compass-is-not-used)). GPS waypoint work needs a
-  real heading source first.
-- `gps_link` (0, 0, 0.25) in the URDF is an **assumption**, not a measurement.
-  `navsat_transform` uses it to remove the antenna lever arm: harmless for local
-  obstacle avoidance, worth a tape measure before waypoint work.
-- **RViz on the Jetson costs a full CPU core.** Close it for serious measurements.
-- The Pico must run the `V <left> <right>` firmware in
-  `athena_drive/firmware/athena_drive_fw`. The `athena_drive` bridge speaks only
-  that protocol and has no legacy fallback. The deprecated `drive` package has one
-  (`legacy_protocol:=true`) but `bringup` deliberately does not use that package: it
-  hardcodes a `/dev/ttyACM*` number that enumerates as the Pixhawk about half the
-  time ([drive/README.md](../../drive/README.md)).
+### 2. Pico W Serial Port Contention
+- **Symptom:** `motor_bridge` outputs: `could not open serial port ... - running dry`.
+- **Cause:** Another script holds the serial port (e.g. `calibrate`, `wiring_check`, or another bridge instance).
+- **Resolution:**
+  ```bash
+  # Identify PID holding the Pico serial link
+  fuser -v /dev/serial/by-id/usb-Raspberry_Pi_Pico*
+  # Terminate contending process
+  kill -9 <PID>
+  ```

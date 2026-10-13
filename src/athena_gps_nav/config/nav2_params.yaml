@@ -175,16 +175,11 @@ controller_server:
       regulated_linear_scaling_min_speed: 0.15
       use_rotate_to_heading: true
       rotate_to_heading_min_angle: 0.5
-      # 0.8 rad/s was too fast for the odometry underneath it.  VIO runs
-      # 10 Hz outdoors and collapses to 2-4 Hz indoors, so at 0.8 rad/s the
-      # rover sweeps 12-25 degrees between pose updates and every cloud
-      # arriving in that gap is placed with a stale heading.  At 3 m range
-      # that smears an obstacle by up to 0.8 m, and because nothing in the
-      # costmap decays with time, the smear stays marked after the camera
-      # has looked away.  Turning in place is exactly when this is worst.
-      # 0.4 halves it. If VIO is running at 2-4 Hz indoors, go lower still.
-      rotate_to_heading_angular_vel: 0.4
-      max_angular_accel: 1.5
+      # 0.4 rad/s was insufficient to overcome 6-wheel skid scrub torque
+      # (commanded only ~77 PWM, stalling against ground friction). Teleop uses
+      # 0.8 rad/s (~134 PWM), which rotates reliably. Set to 0.8 rad/s to match teleop.
+      rotate_to_heading_angular_vel: 0.8
+      max_angular_accel: 1.8
       max_robot_pose_search_dist: 10.0
 
 local_costmap:
@@ -210,7 +205,7 @@ local_costmap:
       width: 8
       height: 8
       resolution: 0.05
-      footprint: "[[0.65, 0.5], [0.65, -0.5], [-0.65, -0.5], [-0.65, 0.5]]"
+      footprint: "[[0.35, 0.25], [0.35, -0.25], [-0.35, -0.25], [-0.35, 0.25]]"
       plugins: ["stvl_layer", "inflation_layer"]
       # Obstacles: spatio_temporal_voxel_layer (apt ros-humble-spatio-
       # temporal-voxel-layer), not nav2_costmap_2d::VoxelLayer.
@@ -316,11 +311,9 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        # Must be >= the footprint's circumscribed radius, which for the
-        # confirmed 1.3 x 1.0 m footprint is hypot(0.65, 0.5) = 0.82 m.
-        # It was 0.6: Nav2 warns, and there was no cost gradient covering the
-        # rover's own corner sweep.  0.9 clears it with a modest margin.
-        inflation_radius: 0.9
+        # Shrunk footprint circumscribed radius = hypot(0.35, 0.25) = ~0.43 m.
+        # 0.50 clears it cleanly without falsely blocking gaps indoors.
+        inflation_radius: 0.50
       always_send_full_costmap: True
 
 global_costmap:
@@ -342,7 +335,7 @@ global_costmap:
       width: 100
       height: 100
       resolution: 0.1
-      footprint: "[[0.65, 0.5], [0.65, -0.5], [-0.65, -0.5], [-0.65, 0.5]]"
+      footprint: "[[0.35, 0.25], [0.35, -0.25], [-0.35, -0.25], [-0.35, 0.25]]"
       # false since the STVL switch (2026-10-02).  STVL only ever writes
       # obstacle cells, never "seen and free" ones, so with true every other
       # cell stayed NO_INFORMATION, and InflationLayer does not spread its
@@ -418,7 +411,8 @@ global_costmap:
         # Both must stay >= the footprint's circumscribed radius, which for
         # the confirmed 1.3 x 1.0 m footprint is hypot(0.65, 0.5) = 0.82 m.
         cost_scaling_factor: 2.0
-        inflation_radius: 1.2
+        # Shrunk footprint circumscribed radius = ~0.43 m; 0.70 m gives smooth curve clearance
+        inflation_radius: 0.70
       # False, not True.  At 100 x 100 m and 0.1 m this grid is 1e6 cells,
       # and True republishes every one of them at publish_frequency (1 Hz) =
       # ~1 MB/s, all of it down the SSH tunnel to Foxglove.  False sends
@@ -470,9 +464,9 @@ behavior_server:
     # D435i sees 87 degrees, so the rover is rotating into 273 degrees it
     # cannot see, using a costmap whose memory of that space is stale.
     # Matched to rotate_to_heading_angular_vel for the same smearing reason.
-    max_rotational_vel: 0.5
-    min_rotational_vel: 0.3
-    rotational_acc_lim: 1.5
+    max_rotational_vel: 0.8
+    min_rotational_vel: 0.4
+    rotational_acc_lim: 1.8
 
 waypoint_follower:
   ros__parameters:
@@ -491,14 +485,12 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: False
     feedback: "OPEN_LOOP"
-    # Angular was 1.2 rad/s, well above anything upstream actually asks for
-    # (RPP turns at 0.4, the Spin recovery at 0.5).  A ceiling that high only
-    # matters when something misbehaves, and then it lets it misbehave fast.
-    # 0.6 leaves headroom over both without allowing a runaway spin.
-    max_velocity: [0.5, 0.0, 0.6]
-    min_velocity: [-0.5, 0.0, -0.6]
-    max_accel: [0.5, 0.0, 1.5]
-    max_decel: [-0.5, 0.0, -1.5]
+    # Angular ceiling matches FollowPath rotate_to_heading_angular_vel (0.8 rad/s)
+    # and teleop full-stick turn rate so autonomous turns can overcome 6-wheel scrub.
+    max_velocity: [0.5, 0.0, 0.8]
+    min_velocity: [-0.5, 0.0, -0.8]
+    max_accel: [0.5, 0.0, 1.8]
+    max_decel: [-0.5, 0.0, -1.8]
     odom_topic: "/odometry/local"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]

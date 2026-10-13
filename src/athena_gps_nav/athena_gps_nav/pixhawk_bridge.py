@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 pixhawk_bridge.py
 
@@ -164,7 +164,12 @@ class PixhawkBridge(Node):
         # solution absolutely.
         self.declare_parameter('gps_rtk_sigma_floor', 0.02)    # metres
         self.declare_parameter('rtcm_enabled', True)
-        self.declare_parameter('rtcm_host', '172.20.55.128')   # base laptop
+        default_rtcm_host = (
+            os.environ.get('RTCM_HOST')
+            or os.environ.get('BASE_STATION_IP')
+            or '127.0.0.1'
+        )
+        self.declare_parameter('rtcm_host', default_rtcm_host)
         self.declare_parameter('rtcm_port', 2101)
         # seconds of base-stream silence before warning
         self.declare_parameter('rtcm_stale_warn', 10.0)
@@ -346,7 +351,12 @@ class PixhawkBridge(Node):
     # ------------------------------------------------------------------ mavlink
     def _mavlink_loop(self):
         while not self._stop and rclpy.ok():
-            msg = self.mav.recv_match(blocking=True, timeout=1.0)
+            try:
+                msg = self.mav.recv_match(blocking=True, timeout=1.0)
+            except Exception as e:
+                self._bad_data += 1
+                time.sleep(0.01)
+                continue
             if msg is None:
                 continue
             t = msg.get_type()

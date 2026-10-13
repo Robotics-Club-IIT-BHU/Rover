@@ -1,83 +1,79 @@
-# WiFi captive-portal login from a terminal
+# WiFi Captive Portal Login
 
-Campus WiFi that wants a browser login would otherwise mean a trip to the lab
-with a monitor every time the lease expires. The Jetson has no screen, so do
-it from the SSH session. Back to the [package README](../README.md).
+Campus WiFi networks intercept internet traffic with a browser login page. Because the Jetson is headless (no monitor), you authenticate directly from your terminal session.
 
-## A real browser in the terminal
+---
 
-`w3m` is installed on the Jetson. It renders forms and keeps cookies, which is
-all a portal needs. Use it the first time you meet a portal, or when the
-automated login below stops working and you need to see what the page says.
+## Quick Setup (Terminal Login)
+
+Run these commands inside your SSH session on the Jetson:
+
+```bash
+# 1. Inspect the login page and generate configuration template (ONE TIME)
+ros2 run athena_remote captive_login --ros-args -p mode:=discover   # writes ~/.config/athena_remote/portal.yaml
+
+# 2. Fill in your username and password (press 'i' to type, 'Esc' then ':wq' to save)
+vim ~/.config/athena_remote/portal.yaml
+
+# 3. Log in (authenticates session; exits immediately if already online)
+ros2 run athena_remote captive_login
+
+# 4. Synchronize system clock immediately after connection
+sudo systemctl restart systemd-timesyncd
+```
+
+> [!IMPORTANT]
+> **Always sync system time after logging in.** Booting offline leaves the Jetson clock unsynchronized, which causes TF extrapolation errors, ROS node failures, and broken SSL certificates (`apt`/`git`).
+
+---
+
+## Verify Connection & Clock
+
+```bash
+# Verify clock synchronization (should show: System clock synchronized: yes)
+timedatectl
+
+# Verify internet access (204 means fully connected)
+curl -s -o /dev/null -w "%{http_code}\n" http://connectivitycheck.gstatic.com/generate_204
+```
+
+---
+
+## Stay Logged In Across Reboots (Crontab)
+
+To automatically log in on boot and refresh expired portal leases:
+
+1. Open crontab editor:
+   ```bash
+   crontab -e
+   ```
+2. Append the following lines:
+   ```cron
+   @reboot      sleep 30 && . /opt/ros/humble/setup.sh && ~/athena/install/athena_remote/lib/athena_remote/captive_login && systemctl restart systemd-timesyncd
+   */10 * * * * . /opt/ros/humble/setup.sh && ~/athena/install/athena_remote/lib/athena_remote/captive_login
+   ```
+
+> [!NOTE]
+> `. /opt/ros/humble/setup.sh` is necessary because cron runs with a minimal environment lacking `PYTHONPATH` and ROS paths.
+
+---
+
+## Fallback: Manual Terminal Browser (`w3m`)
+
+If the portal uses complex dynamic JavaScript or novel anti-bot challenges that `discover` cannot parse, use the installed terminal web browser:
 
 ```bash
 w3m http://connectivitycheck.gstatic.com/generate_204
 ```
 
-That URL normally returns an empty `204`, so anything you see is the portal
-intercepting you.
-
-| Key | Does |
+| Key | Action |
 |---|---|
-| `Tab` / arrows | move between fields and links |
-| `Enter` on a field | start typing; `Enter` again to accept |
-| `Enter` on the button | submit |
-| `q` then `y` | quit |
+| `Tab` / `Arrow keys` | Navigate between input fields and buttons |
+| `Enter` on input | Enter text; press `Enter` again to finish editing |
+| `Enter` on button | Submit form / Log in |
+| `q` then `y` | Quit browser |
 
-Confirm you are through:
-
+Once logged in, remember to synchronize time:
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://connectivitycheck.gstatic.com/generate_204
-# 204 = through. Anything else = still captive.
+sudo systemctl restart systemd-timesyncd
 ```
-
-## Automated login
-
-```bash
-# 1. is a portal in the way?
-ros2 run athena_remote captive_login --ros-args -p mode:=detect
-
-# 2. ONE TIME - read the login form and write a config template
-ros2 run athena_remote captive_login --ros-args -p mode:=discover
-
-# 3. fill in ~/.config/athena_remote/portal.yaml, then log in
-ros2 run athena_remote captive_login
-```
-
-- The config lives in `~/.config/athena_remote/portal.yaml`, not in the repo,
-  is written `0600`, and credentials are never logged. Keep it that way.
-- `discover` reads the real form because every portal names its fields
-  differently (`Username`/`user`/`uname`, plus hidden CSRF tokens that must be
-  echoed back verbatim); guessing fails silently. The template lists every
-  field it found and marks the likely username, password and hidden ones.
-- Success is verified: a portal will return `200 OK` for a failed login, so the
-  tool re-probes for real internet before reporting success.
-
-If it still fails, in order of likelihood: wrong credentials; a per-page-load
-CSRF token (re-run `discover` for a fresh value); the form is built by
-JavaScript so there is no `<form>` to read (capture the real POST once in a
-browser's dev tools, Network tab with preserve log, write those fields into the
-config by hand, and the tool replays it).
-
-## Making it automatic
-
-Re-login on boot and whenever the lease drops:
-
-```bash
-# crontab -e
-@reboot      sleep 30 && . /opt/ros/humble/setup.sh && ~/athena/install/athena_remote/lib/athena_remote/captive_login
-*/10 * * * * . /opt/ros/humble/setup.sh && ~/athena/install/athena_remote/lib/athena_remote/captive_login
-```
-
-The `. /opt/ros/humble/setup.sh` is required. That path is a setuptools console
-script that imports `rclpy`, and cron has no `PYTHONPATH`, `AMENT_PREFIX_PATH`
-or `LD_LIBRARY_PATH`; without it the job dies on `ModuleNotFoundError: rclpy`
-and tells you nothing. `captive_login` needs no ROS graph (it is a node only so
-`ros2 run` can start it). It exits immediately when already online, so every
-ten minutes costs one HTTP probe.
-
-## Still no internet after logging in
-
-Check the clock. A Jetson that booted offline has a wrong clock, which breaks
-certificate validation (`apt`, `git`) and TF lookups. See
-[Correcting the clock](../../README.md#correcting-the-clock).

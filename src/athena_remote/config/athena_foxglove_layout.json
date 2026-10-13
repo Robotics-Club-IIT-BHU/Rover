@@ -57,6 +57,16 @@
       "fontSize": 13,
       "defaultExpanded": false
     },
+    "RawMessages!decisionstatus": {
+      "topicPath": "/athena/decision_status.data",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all",
+      "fontSize": 13,
+      "defaultExpanded": false
+    },
     "RawMessages!goal": {
       "topicPath": "/athena/goal_status.data",
       "diffEnabled": false,
@@ -426,6 +436,10 @@
             "second": "Tab!controls",
             "direction": "row"
           }
+        },
+        {
+          "title": "Decisions",
+          "layout": "RawMessages!decisionstatus"
         },
         {
           "title": "Teleop",
