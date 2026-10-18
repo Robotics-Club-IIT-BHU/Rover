@@ -70,3 +70,52 @@ red_zones:
   center_x: 20.0
   center_y: 90.0
   radius_m: 8.0
+obstacles:
+- id: OBSTACLE_BOULDER_A
+  name: Monolithic Boulder Formation
+  x: 22.0
+  y: 28.0
+  size:
+  - 2.4
+  - 2.0
+  - 1.8
+- id: OBSTACLE_HABITAT_MODULE
+  name: Habitat Cargo Module
+  x: 45.0
+  y: 42.0
+  size:
+  - 3.6
+  - 1.8
+  - 1.7
+- id: OBSTACLE_CRAG_B
+  name: Massive Crag Spire & Buttress
+  x: 50.0
+  y: 62.0
+  size:
+  - 2.5
+  - 2.2
+  - 2.5
+- id: OBSTACLE_SLALOM_1
+  name: Slalom Pillar 1
+  x: 72.0
+  y: 65.0
+  size:
+  - 1.5
+  - 1.5
+  - 2.2
+- id: OBSTACLE_SLALOM_2
+  name: Slalom Pillar 2
+  x: 76.0
+  y: 72.0
+  size:
+  - 1.8
+  - 1.8
+  - 2.0
+- id: OBSTACLE_COMM_MAST
+  name: Decommissioned Comm Mast Debris
+  x: 28.0
+  y: 52.0
+  size:
+  - 4.2
+  - 1.8
+  - 0.9

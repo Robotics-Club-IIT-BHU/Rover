@@ -252,6 +252,14 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float, min_elevation_
     z_toolbox = get_surface_elevation(70.0, 45.0)
     z_rock = get_surface_elevation(55.0, 85.0)
 
+    # Obstacle avoidance test objects
+    z_boulder_a = get_surface_elevation(22.0, 28.0)
+    z_habitat_module = get_surface_elevation(45.0, 42.0)
+    z_crag_b = get_surface_elevation(50.0, 62.0)
+    z_pillar_1 = get_surface_elevation(72.0, 65.0)
+    z_pillar_2 = get_surface_elevation(76.0, 72.0)
+    z_comm_debris = get_surface_elevation(28.0, 52.0)
+
     red_zone_1_xml = _generate_red_zone_pylons_xml('red_zone_1_pylons', 50.0, 75.0, 6.0, num_pylons=8)
     red_zone_2_xml = _generate_red_zone_pylons_xml('red_zone_2_pylons', 20.0, 90.0, 8.0, num_pylons=8)
 
@@ -277,7 +285,7 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float, min_elevation_
     <!-- Default GUI user camera view framing spawn area and arena -->
     <gui fullscreen="0">
       <camera name="user_camera">
-        <pose>2.5 3.5 1.2 0 0.126 0.685</pose>
+        <pose>60.0 -40.0 80.0 0 0.6 1.5708</pose>
         <view_controller>orbit</view_controller>
       </camera>
     </gui>
@@ -304,14 +312,14 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float, min_elevation_
     <!-- Procedural Sproscape-Sim Mars analog heightmap -->
     <model name="sproscape_terrain">
       <static>true</static>
-      <pose>{ARENA_SIZE_M / 2.0} {ARENA_SIZE_M / 2.0} 0 0 0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
       <link name="terrain_link">
         <collision name="collision">
           <geometry>
             <heightmap>
               <uri>{heightmap_rel_path}</uri>
               <size>{ARENA_SIZE_M} {ARENA_SIZE_M} {z_range_m:.2f}</size>
-              <pos>0.0 0.0 {min_elevation_m:.3f}</pos>
+              <pos>{ARENA_SIZE_M / 2.0} {ARENA_SIZE_M / 2.0} {min_elevation_m:.3f}</pos>
             </heightmap>
           </geometry>
           <surface>
@@ -334,7 +342,7 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float, min_elevation_
               </texture>
               <uri>{heightmap_rel_path}</uri>
               <size>{ARENA_SIZE_M} {ARENA_SIZE_M} {z_range_m:.2f}</size>
-              <pos>0.0 0.0 {min_elevation_m:.3f}</pos>
+              <pos>{ARENA_SIZE_M / 2.0} {ARENA_SIZE_M / 2.0} {min_elevation_m:.3f}</pos>
             </heightmap>
           </geometry>
         </visual>
@@ -737,6 +745,171 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float, min_elevation_
       </link>
     </model>
 
+    <!-- =====================================================================
+         LARGE OBSTACLE AVOIDANCE TEST ASSETS
+         ===================================================================== -->
+
+    <!-- Obstacle 1: Monolithic Boulder Formation (transit corridor between Spawn and IDMO) -->
+    <model name="obstacle_monolith_boulder_a">
+      <static>true</static>
+      <pose>22.0 28.0 {z_boulder_a:.3f} 0 0 0</pose>
+      <link name="link">
+        <collision name="main_boulder_col">
+          <pose>0 0 0.9 0 0 0.3</pose>
+          <geometry><box><size>2.4 2.0 1.8</size></box></geometry>
+        </collision>
+        <visual name="main_boulder_vis">
+          <pose>0 0 0.9 0 0 0.3</pose>
+          <geometry><box><size>2.4 2.0 1.8</size></box></geometry>
+          <material><ambient>0.15 0.12 0.10 1</ambient><diffuse>0.28 0.22 0.18 1</diffuse></material>
+        </visual>
+        <collision name="flank_rock_col">
+          <pose>0.8 0.5 0.6 0.2 0.3 0.6</pose>
+          <geometry><box><size>1.6 1.4 1.2</size></box></geometry>
+        </collision>
+        <visual name="flank_rock_vis">
+          <pose>0.8 0.5 0.6 0.2 0.3 0.6</pose>
+          <geometry><box><size>1.6 1.4 1.2</size></box></geometry>
+          <material><ambient>0.18 0.14 0.12 1</ambient><diffuse>0.32 0.26 0.20 1</diffuse></material>
+        </visual>
+        <visual name="cap_stone_vis">
+          <pose>-0.3 0.2 1.7 0 0 0</pose>
+          <geometry><sphere><radius>0.65</radius></sphere></geometry>
+          <material><ambient>0.12 0.10 0.08 1</ambient><diffuse>0.24 0.18 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 2: Fallen Habitat Cargo Module (between Cache site and Crater) -->
+    <model name="obstacle_habitat_cargo_module">
+      <static>true</static>
+      <pose>45.0 42.0 {z_habitat_module:.3f} 0 0 0.45</pose>
+      <link name="link">
+        <collision name="module_body_col">
+          <pose>0 0 0.85 0 0 0</pose>
+          <geometry><box><size>3.6 1.8 1.7</size></box></geometry>
+        </collision>
+        <visual name="module_body_vis">
+          <pose>0 0 0.85 0 0 0</pose>
+          <geometry><box><size>3.6 1.8 1.7</size></box></geometry>
+          <material><ambient>0.6 0.6 0.65 1</ambient><diffuse>0.85 0.85 0.90 1</diffuse></material>
+        </visual>
+        <!-- Hazard stripes accent border -->
+        <visual name="hazard_stripe_top">
+          <pose>0 0 1.71 0 0 0</pose>
+          <geometry><box><size>3.6 0.25 0.02</size></box></geometry>
+          <material><ambient>0.8 0.6 0.05 1</ambient><diffuse>0.95 0.8 0.05 1</diffuse></material>
+        </visual>
+        <!-- Bulkhead Endcap -->
+        <collision name="bulkhead_col">
+          <pose>-1.85 0 0.85 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.85</radius><length>0.3</length></cylinder></geometry>
+        </collision>
+        <visual name="bulkhead_vis">
+          <pose>-1.85 0 0.85 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.85</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.2 0.2 0.25 1</ambient><diffuse>0.35 0.35 0.40 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 3: Massive Crag Formation (corridor heading to Marker Alpha) -->
+    <model name="obstacle_crag_formation_b">
+      <static>true</static>
+      <pose>50.0 62.0 {z_crag_b:.3f} 0 0 0</pose>
+      <link name="link">
+        <collision name="spire_col">
+          <pose>0 0 1.25 0.08 0.12 0.3</pose>
+          <geometry><cylinder><radius>1.1</radius><length>2.5</length></cylinder></geometry>
+        </collision>
+        <visual name="spire_vis">
+          <pose>0 0 1.25 0.08 0.12 0.3</pose>
+          <geometry><cylinder><radius>1.1</radius><length>2.5</length></cylinder></geometry>
+          <material><ambient>0.14 0.11 0.09 1</ambient><diffuse>0.26 0.20 0.16 1</diffuse></material>
+        </visual>
+        <collision name="buttress_col">
+          <pose>1.1 -0.4 0.7 0.2 0.1 0.7</pose>
+          <geometry><box><size>2.2 1.6 1.4</size></box></geometry>
+        </collision>
+        <visual name="buttress_vis">
+          <pose>1.1 -0.4 0.7 0.2 0.1 0.7</pose>
+          <geometry><box><size>2.2 1.6 1.4</size></box></geometry>
+          <material><ambient>0.16 0.13 0.10 1</ambient><diffuse>0.30 0.24 0.18 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 4: Slalom Pillars (corridor heading to Marker Bravo) -->
+    <model name="obstacle_slalom_pillar_1">
+      <static>true</static>
+      <pose>72.0 65.0 {z_pillar_1:.3f} 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <pose>0 0 1.1 0 0 0</pose>
+          <geometry><cylinder><radius>0.75</radius><length>2.2</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 1.1 0 0 0</pose>
+          <geometry><cylinder><radius>0.75</radius><length>2.2</length></cylinder></geometry>
+          <material><ambient>0.20 0.15 0.12 1</ambient><diffuse>0.35 0.27 0.22 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="obstacle_slalom_pillar_2">
+      <static>true</static>
+      <pose>76.0 72.0 {z_pillar_2:.3f} 0 0 0.5</pose>
+      <link name="link">
+        <collision name="col">
+          <pose>0 0 1.0 0 0 0</pose>
+          <geometry><box><size>1.8 1.8 2.0</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 1.0 0 0 0</pose>
+          <geometry><box><size>1.8 1.8 2.0</size></box></geometry>
+          <material><ambient>0.18 0.14 0.11 1</ambient><diffuse>0.32 0.25 0.20 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 5: Decommissioned Weather/Comm Mast Debris (near IDMO panel) -->
+    <model name="obstacle_comm_mast_debris">
+      <static>true</static>
+      <pose>28.0 52.0 {z_comm_debris:.3f} 0 0 0.8</pose>
+      <link name="link">
+        <!-- Base concrete / composite footing -->
+        <collision name="footing_col">
+          <pose>0 0 0.25 0 0 0</pose>
+          <geometry><cylinder><radius>0.9</radius><length>0.5</length></cylinder></geometry>
+        </collision>
+        <visual name="footing_vis">
+          <pose>0 0 0.25 0 0 0</pose>
+          <geometry><cylinder><radius>0.9</radius><length>0.5</length></cylinder></geometry>
+          <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material>
+        </visual>
+        <!-- Fallen lattice steel beam -->
+        <collision name="beam_col">
+          <pose>1.8 0 0.45 0.1 0.18 0</pose>
+          <geometry><box><size>4.2 0.55 0.55</size></box></geometry>
+        </collision>
+        <visual name="beam_vis">
+          <pose>1.8 0 0.45 0.1 0.18 0</pose>
+          <geometry><box><size>4.2 0.55 0.55</size></box></geometry>
+          <material><ambient>0.7 0.3 0.05 1</ambient><diffuse>0.85 0.35 0.05 1</diffuse></material>
+        </visual>
+        <!-- Antenna dish wreckage -->
+        <collision name="dish_col">
+          <pose>-0.3 1.2 0.65 1.1 0.2 0</pose>
+          <geometry><cylinder><radius>0.85</radius><length>0.15</length></cylinder></geometry>
+        </collision>
+        <visual name="dish_vis">
+          <pose>-0.3 1.2 0.65 1.1 0.2 0</pose>
+          <geometry><cylinder><radius>0.85</radius><length>0.15</length></cylinder></geometry>
+          <material><ambient>0.5 0.5 0.55 1</ambient><diffuse>0.75 0.75 0.8 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
   </world>
 </sdf>
 """
@@ -871,6 +1044,14 @@ def main():
         'red_zones': [
             {'id': 'RED_ZONE_1', 'name': 'Contaminated Zone North', 'center_x': 50.0, 'center_y': 75.0, 'radius_m': 6.0},
             {'id': 'RED_ZONE_2', 'name': 'Contaminated Crater Rift', 'center_x': 20.0, 'center_y': 90.0, 'radius_m': 8.0},
+        ],
+        'obstacles': [
+            {'id': 'OBSTACLE_BOULDER_A', 'name': 'Monolithic Boulder Formation', 'x': 22.0, 'y': 28.0, 'size': [2.4, 2.0, 1.8]},
+            {'id': 'OBSTACLE_HABITAT_MODULE', 'name': 'Habitat Cargo Module', 'x': 45.0, 'y': 42.0, 'size': [3.6, 1.8, 1.7]},
+            {'id': 'OBSTACLE_CRAG_B', 'name': 'Massive Crag Spire & Buttress', 'x': 50.0, 'y': 62.0, 'size': [2.5, 2.2, 2.5]},
+            {'id': 'OBSTACLE_SLALOM_1', 'name': 'Slalom Pillar 1', 'x': 72.0, 'y': 65.0, 'size': [1.5, 1.5, 2.2]},
+            {'id': 'OBSTACLE_SLALOM_2', 'name': 'Slalom Pillar 2', 'x': 76.0, 'y': 72.0, 'size': [1.8, 1.8, 2.0]},
+            {'id': 'OBSTACLE_COMM_MAST', 'name': 'Decommissioned Comm Mast Debris', 'x': 28.0, 'y': 52.0, 'size': [4.2, 1.8, 0.9]},
         ],
     }
     with open(zones_path, 'w') as f:
