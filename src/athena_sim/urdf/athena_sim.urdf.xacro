@@ -29,7 +29,7 @@
       <right_joint>wheel_mid_right_joint</right_joint>
       <right_joint>wheel_rear_right_joint</right_joint>
       <wheel_separation>0.85</wheel_separation>
-      <wheel_radius>0.06</wheel_radius>
+      <wheel_radius>0.15</wheel_radius>
       <odom_publish_frequency>20</odom_publish_frequency>
       <topic>/cmd_vel</topic>
       <odom_topic>/sim/odom</odom_topic>

@@ -68,6 +68,22 @@ class TestUrdfStructure(unittest.TestCase):
         self.assertIn('imu', sensor_types, "IMU sensor missing")
         self.assertIn('navsat', sensor_types, "NavSat sensor missing")
 
+    def test_rocker_bogie_suspension_declared(self):
+        """Verify athena.urdf.xacro defines rocker and bogie suspension linkages and 30cm wheels."""
+        tree = ET.parse(self.athena_xacro)
+        root = tree.getroot()
+        properties = {elem.attrib.get('name'): elem.attrib.get('value') for elem in root if 'property' in elem.tag}
+
+        self.assertEqual(properties.get('wheel_radius'), '0.15', "Wheel radius must be 0.15m (30cm diameter)")
+        self.assertEqual(properties.get('base_height'), '0.25', "Base height ground clearance must be 0.25m")
+
+        # Verify DiffDrive in athena_sim matches 0.15m radius
+        tree_sim = ET.parse(self.athena_sim_xacro)
+        diff_drive = tree_sim.find('.//plugin[@filename="ignition-gazebo-diff-drive-system"]')
+        self.assertIsNotNone(diff_drive)
+        self.assertEqual(diff_drive.find('wheel_radius').text, '0.15')
+
 
 if __name__ == '__main__':
     unittest.main()
+
