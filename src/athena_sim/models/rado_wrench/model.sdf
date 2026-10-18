@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <model name="rado_wrench">
+    <link name="link">
+      <inertial>
+        <mass>0.8</mass>
+        <inertia><ixx>0.005</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.005</iyy><iyz>0</iyz><izz>0.001</izz></inertia>
+      </inertial>
+      <collision name="shaft_col">
+        <pose>0 0 0.12 0 0 0</pose>
+        <geometry><box><size>0.03 0.015 0.25</size></box></geometry>
+      </collision>
+      <visual name="shaft_vis">
+        <pose>0 0 0.12 0 0 0</pose>
+        <geometry><box><size>0.03 0.015 0.25</size></box></geometry>
+        <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>

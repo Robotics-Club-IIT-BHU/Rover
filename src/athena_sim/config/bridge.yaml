@@ -1,0 +1,62 @@
+# ros_gz_bridge configuration for Athena Rover simulation in Gazebo Fortress
+# Maps Ignition/Gazebo transport topics to ROS 2 topics with sensor_data QoS
+
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "ignition.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "ignition.msgs.Twist"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/joint_states"
+  gz_topic_name: "/joint_states"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "ignition.msgs.Model"
+  direction: GZ_TO_ROS
+
+# RealSense D435i Color Stream
+- ros_topic_name: "/camera/camera/color/image_raw"
+  gz_topic_name: "/camera/camera/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS
+
+# RealSense D435i Aligned Depth Stream
+- ros_topic_name: "/camera/camera/aligned_depth_to_color/image_raw"
+  gz_topic_name: "/camera/camera/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS
+
+# RealSense D435i 3D PointCloud (feeds STVL local and global costmaps)
+- ros_topic_name: "/camera/camera/depth/color/points"
+  gz_topic_name: "/camera/camera/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "ignition.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+
+# Pixhawk Cube Orange IMU (ENU frame)
+- ros_topic_name: "/imu/data"
+  gz_topic_name: "/imu/data_raw"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "ignition.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# Raw NavSat fix from Gazebo (fed into sim_gps_rtk node for error injection)
+- ros_topic_name: "/gps/fix_raw"
+  gz_topic_name: "/gps/fix_raw"
+  ros_type_name: "sensor_msgs/msg/NavSatFix"
+  gz_type_name: "ignition.msgs.NavSat"
+  direction: GZ_TO_ROS
+
+# Ground truth wheel odometry from Gazebo DiffDrive system
+- ros_topic_name: "/sim/odom"
+  gz_topic_name: "/sim/odom"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "ignition.msgs.Odometry"
+  direction: GZ_TO_ROS

@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro" name="athena">
 
+  <xacro:arg name="sim" default="false"/>
+  <xacro:property name="is_sim" value="$(arg sim)"/>
+
   <!--
     Athena rover description.
 
@@ -132,7 +135,29 @@
       <geometry><box size="${base_length} ${base_width} ${base_thick}"/></geometry>
       <material name="athena_body"/>
     </visual>
+    <xacro:if value="${is_sim}">
+      <collision>
+        <geometry><box size="${base_length} ${base_width} ${base_thick}"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="45.0"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="${45.0 * (base_width*base_width + base_thick*base_thick) / 12.0}"
+                 ixy="0.0" ixz="0.0"
+                 iyy="${45.0 * (base_length*base_length + base_thick*base_thick) / 12.0}"
+                 iyz="0.0"
+                 izz="${45.0 * (base_length*base_length + base_width*base_width) / 12.0}"/>
+      </inertial>
+    </xacro:if>
   </link>
+
+  <xacro:if value="${is_sim}">
+    <gazebo reference="base_link">
+      <material>Gazebo/DarkGrey</material>
+      <mu1>0.5</mu1>
+      <mu2>0.5</mu2>
+    </gazebo>
+  </xacro:if>
 
   <!-- base_link is the PARENT of base_footprint, not the child.  ekf_local
        publishes odom to base_link, so making base_footprint a parent would
@@ -155,6 +180,11 @@
       <geometry><box size="0.06 ${base_width * 0.6} 0.04"/></geometry>
       <material name="athena_accent"/>
     </visual>
+    <xacro:if value="${is_sim}">
+      <collision>
+        <geometry><box size="0.06 ${base_width * 0.6} 0.04"/></geometry>
+      </collision>
+    </xacro:if>
   </link>
   <joint name="nose_joint" type="fixed">
     <parent link="base_link"/>
@@ -162,7 +192,7 @@
     <origin xyz="${base_length/2 - 0.02} 0 ${base_thick/2}" rpy="0 0 0"/>
   </joint>
 
-  <!-- ==== six wheels, visual only ======================================= -->
+  <!-- ==== six wheels ==================================================== -->
 
   <xacro:macro name="wheel" params="name x y">
     <link name="${name}">
@@ -170,13 +200,50 @@
         <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
         <material name="athena_wheel"/>
       </visual>
+      <xacro:if value="${is_sim}">
+        <collision>
+          <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        </collision>
+        <inertial>
+          <mass value="2.5"/>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <inertia ixx="${2.5 * (3.0*wheel_radius*wheel_radius + wheel_width*wheel_width) / 12.0}"
+                   ixy="0.0" ixz="0.0"
+                   iyy="${2.5 * (3.0*wheel_radius*wheel_radius + wheel_width*wheel_width) / 12.0}"
+                   iyz="0.0"
+                   izz="${2.5 * wheel_radius * wheel_radius / 2.0}"/>
+        </inertial>
+      </xacro:if>
     </link>
-    <joint name="${name}_joint" type="fixed">
-      <parent link="base_link"/>
-      <child  link="${name}"/>
-      <!-- A cylinder's axis is +z and a wheel's axis is +y, hence the roll. -->
-      <origin xyz="${x} ${y} ${wheel_radius - base_height}" rpy="1.5708 0 0"/>
-    </joint>
+
+    <xacro:unless value="${is_sim}">
+      <joint name="${name}_joint" type="fixed">
+        <parent link="base_link"/>
+        <child  link="${name}"/>
+        <!-- A cylinder axis is +z and a wheel axis is +y, hence the roll. -->
+        <origin xyz="${x} ${y} ${wheel_radius - base_height}" rpy="1.5708 0 0"/>
+      </joint>
+    </xacro:unless>
+
+    <xacro:if value="${is_sim}">
+      <joint name="${name}_joint" type="continuous">
+        <parent link="base_link"/>
+        <child  link="${name}"/>
+        <!-- Local z after 90 deg roll points along base_link y (the spin axis) -->
+        <origin xyz="${x} ${y} ${wheel_radius - base_height}" rpy="1.5708 0 0"/>
+        <axis xyz="0 0 1"/>
+        <dynamics damping="0.05" friction="0.05"/>
+        <limit effort="40.0" velocity="20.0"/>
+      </joint>
+      <gazebo reference="${name}">
+        <material>Gazebo/Black</material>
+        <mu1>1.0</mu1>
+        <mu2>0.2</mu2>
+        <kp>1000000.0</kp>
+        <kd>100.0</kd>
+        <minDepth>0.005</minDepth>
+      </gazebo>
+    </xacro:if>
   </xacro:macro>
 
   <xacro:wheel name="wheel_front_left"  x="${wheel_x}"  y="${ track_width/2}"/>
