@@ -217,12 +217,12 @@ def generate_launch_description():
     return LaunchDescription([
         # Launch Arguments
         DeclareLaunchArgument('world', default_value=default_world, description='Path to SDF world file'),
-        DeclareLaunchArgument('headless', default_value='true', description='Run Gazebo headless (no GUI)'),
+        DeclareLaunchArgument('headless', default_value='false', description='Run Gazebo headless (no GUI)'),
         DeclareLaunchArgument('use_sim_time', default_value='true', description='Use simulation clock'),
-        DeclareLaunchArgument('spawn_x', default_value='0.0', description='Initial spawn X coordinate'),
-        DeclareLaunchArgument('spawn_y', default_value='0.0', description='Initial spawn Y coordinate'),
-        DeclareLaunchArgument('spawn_z', default_value='0.20', description='Initial spawn Z coordinate'),
-        DeclareLaunchArgument('spawn_yaw', default_value='0.0', description='Initial spawn Yaw (rad)'),
+        DeclareLaunchArgument('spawn_x', default_value='5.0', description='Initial spawn X coordinate'),
+        DeclareLaunchArgument('spawn_y', default_value='5.0', description='Initial spawn Y coordinate'),
+        DeclareLaunchArgument('spawn_z', default_value='0.25', description='Initial spawn Z coordinate'),
+        DeclareLaunchArgument('spawn_yaw', default_value='1.5708', description='Initial spawn Yaw (rad)'),
         DeclareLaunchArgument('gps_mode', default_value='fixed', description='RTK mode: fixed | float | standalone | no_fix'),
         DeclareLaunchArgument('run_localization', default_value='true', description='Launch dual EKF and navsat_transform'),
         DeclareLaunchArgument('run_navigation', default_value='false', description='Launch Nav2 stack'),

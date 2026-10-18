@@ -163,7 +163,7 @@ def generate_heightmap(dim: int = 257, size_m: float = 120.0) -> Tuple[bytes, Di
     return bytes(pixels), metadata
 
 
-def generate_world_sdf(heightmap_rel_path: str, z_range_m: float) -> str:
+def generate_world_sdf(heightmap_rel_path: str, z_range_m: float, min_elevation_m: float = -1.348) -> str:
     """Generate the complete Gazebo Fortress SDF world for Sproscape."""
     return f"""<?xml version="1.0" ?>
 <sdf version="1.8">
@@ -206,13 +206,14 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float) -> str:
     <!-- Procedural Sproscape-Sim Mars analog heightmap -->
     <model name="sproscape_terrain">
       <static>true</static>
+      <pose>{ARENA_SIZE_M / 2.0} {ARENA_SIZE_M / 2.0} 0 0 0 0</pose>
       <link name="terrain_link">
         <collision name="collision">
           <geometry>
             <heightmap>
               <uri>{heightmap_rel_path}</uri>
               <size>{ARENA_SIZE_M} {ARENA_SIZE_M} {z_range_m:.2f}</size>
-              <pos>{ARENA_SIZE_M / 2.0} {ARENA_SIZE_M / 2.0} 0</pos>
+              <pos>0.0 0.0 {min_elevation_m:.3f}</pos>
             </heightmap>
           </geometry>
           <surface>
@@ -235,27 +236,9 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float) -> str:
               </texture>
               <uri>{heightmap_rel_path}</uri>
               <size>{ARENA_SIZE_M} {ARENA_SIZE_M} {z_range_m:.2f}</size>
-              <pos>{ARENA_SIZE_M / 2.0} {ARENA_SIZE_M / 2.0} 0</pos>
+              <pos>0.0 0.0 {min_elevation_m:.3f}</pos>
             </heightmap>
           </geometry>
-        </visual>
-      </link>
-    </model>
-
-    <!-- Base Station Tent & Start Gate marker -->
-    <model name="start_gate">
-      <static>true</static>
-      <pose>0 0 0.5 0 0 0</pose>
-      <link name="gate_link">
-        <visual name="post_left">
-          <pose>-1.5 0 0.5 0 0 0</pose>
-          <geometry><cylinder><radius>0.05</radius><length>1.0</length></cylinder></geometry>
-          <material><ambient>0.1 0.8 0.2 1</ambient><diffuse>0.1 0.8 0.2 1</diffuse></material>
-        </visual>
-        <visual name="post_right">
-          <pose>1.5 0 0.5 0 0 0</pose>
-          <geometry><cylinder><radius>0.05</radius><length>1.0</length></cylinder></geometry>
-          <material><ambient>0.1 0.8 0.2 1</ambient><diffuse>0.1 0.8 0.2 1</diffuse></material>
         </visual>
       </link>
     </model>
@@ -359,7 +342,7 @@ def main():
     print(f"Generated terrain textures in {tex_dir}")
 
     # 3. Main Sproscape World SDF
-    world_sdf = generate_world_sdf('sproscape_heightmap.png', meta['elevation_range_m'])
+    world_sdf = generate_world_sdf('sproscape_heightmap.png', meta['elevation_range_m'], min_elevation_m=meta['min_elevation_m'])
     with open(world_path, 'w') as f:
         f.write(world_sdf)
     print(f"Generated {world_path}")
@@ -373,7 +356,7 @@ def main():
     zones_data = {
         'datum': {'lat': 12.8614, 'lon': 77.4380, 'alt': 860.0},
         'arena_size_m': ARENA_SIZE_M,
-        'start_line': {'x': 0.0, 'y': 0.0, 'name': 'Base Station Start Gate'},
+        'start_line': {'x': 0.0, 'y': 0.0, 'name': 'Base Station Start Area'},
         'delivery_markers': [
             {'id': 'DROP_ALPHA', 'name': 'Marker Alpha (Green Pad)', 'x': 30.0, 'y': 70.0},
             {'id': 'DROP_BRAVO', 'name': 'Marker Bravo (Blue Pad)',  'x': 80.0, 'y': 80.0},

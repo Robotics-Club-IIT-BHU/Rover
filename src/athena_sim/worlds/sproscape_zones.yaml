@@ -6,7 +6,7 @@ arena_size_m: 120.0
 start_line:
   x: 0.0
   y: 0.0
-  name: Base Station Start Gate
+  name: Base Station Start Area
 delivery_markers:
 - id: DROP_ALPHA
   name: Marker Alpha (Green Pad)

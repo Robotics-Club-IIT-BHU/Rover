@@ -39,13 +39,14 @@
     <!-- Procedural Sproscape-Sim Mars analog heightmap -->
     <model name="sproscape_terrain">
       <static>true</static>
+      <pose>60.0 60.0 0 0 0 0</pose>
       <link name="terrain_link">
         <collision name="collision">
           <geometry>
             <heightmap>
               <uri>sproscape_heightmap.png</uri>
               <size>120.0 120.0 3.39</size>
-              <pos>60.0 60.0 0</pos>
+              <pos>0.0 0.0 -1.348</pos>
             </heightmap>
           </geometry>
           <surface>
@@ -68,27 +69,9 @@
               </texture>
               <uri>sproscape_heightmap.png</uri>
               <size>120.0 120.0 3.39</size>
-              <pos>60.0 60.0 0</pos>
+              <pos>0.0 0.0 -1.348</pos>
             </heightmap>
           </geometry>
-        </visual>
-      </link>
-    </model>
-
-    <!-- Base Station Tent & Start Gate marker -->
-    <model name="start_gate">
-      <static>true</static>
-      <pose>0 0 0.5 0 0 0</pose>
-      <link name="gate_link">
-        <visual name="post_left">
-          <pose>-1.5 0 0.5 0 0 0</pose>
-          <geometry><cylinder><radius>0.05</radius><length>1.0</length></cylinder></geometry>
-          <material><ambient>0.1 0.8 0.2 1</ambient><diffuse>0.1 0.8 0.2 1</diffuse></material>
-        </visual>
-        <visual name="post_right">
-          <pose>1.5 0 0.5 0 0 0</pose>
-          <geometry><cylinder><radius>0.05</radius><length>1.0</length></cylinder></geometry>
-          <material><ambient>0.1 0.8 0.2 1</ambient><diffuse>0.1 0.8 0.2 1</diffuse></material>
         </visual>
       </link>
     </model>
