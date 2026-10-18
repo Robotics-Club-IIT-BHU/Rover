@@ -23,7 +23,8 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.xacro')),
-        (os.path.join('share', package_name, 'worlds'), glob('worlds/*')),
+        *[(os.path.join('share', package_name, os.path.dirname(f)), [f])
+          for f in package_files('worlds')],
         *[(os.path.join('share', package_name, os.path.dirname(f)), [f])
           for f in package_files('models')],
     ],

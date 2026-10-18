@@ -45,6 +45,7 @@ def generate_launch_description():
     default_world = os.path.join(pkg_sim_share, 'worlds', 'sproscape.sdf')
     default_bridge_cfg = os.path.join(pkg_sim_share, 'config', 'bridge.yaml')
     default_nav2_cfg = os.path.join(pkg_sim_share, 'config', 'nav2_params_sim.yaml')
+    default_ekf_cfg = os.path.join(pkg_sim_share, 'config', 'dual_ekf_navsat_sim.yaml')
     xacro_file = os.path.join(pkg_sim_share, 'urdf', 'athena_sim.urdf.xacro')
 
     # Launch configuration variables
@@ -65,11 +66,16 @@ def generate_launch_description():
         Command(['xacro ', xacro_file, ' sim:=true']), value_type=str
     )
 
-    # Set Gazebo resource path to discover local models
+    # Set Gazebo resource path to discover local models and textures
     models_dir = os.path.join(pkg_sim_share, 'models')
+    worlds_dir = os.path.join(pkg_sim_share, 'worlds')
     gz_resource_path = SetEnvironmentVariable(
+        name='GZ_SIM_RESOURCE_PATH',
+        value=[models_dir, ':', worlds_dir]
+    )
+    ign_resource_path = SetEnvironmentVariable(
         name='IGN_GAZEBO_RESOURCE_PATH',
-        value=[models_dir, ':', os.path.join(pkg_sim_share, 'worlds')]
+        value=[models_dir, ':', worlds_dir]
     )
 
     # Gazebo simulation launch from ros_gz_sim
@@ -148,13 +154,33 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
     )
 
+    # TF frame bridges between Gazebo scoped link frames and Athena URDF frames
+    imu_frame_bridge = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='sim_imu_frame_bridge',
+        arguments=['--frame-id', 'imu_link', '--child-frame-id', 'athena/base_link/imu_sensor'],
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
+    camera_frame_bridge = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='sim_camera_frame_bridge',
+        arguments=['--frame-id', 'camera_link', '--child-frame-id', 'athena/base_link/rgbd_camera'],
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     # Localization Stack (Dual EKF + NavSat Transform)
     localization = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_nav_share, 'launch', 'localization.launch.py')
         ),
         condition=IfCondition(run_localization),
-        launch_arguments={'use_sim_time': use_sim_time}.items(),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'params_file': default_ekf_cfg,
+        }.items(),
     )
 
     # Navigation Stack (Nav2 with STVL Costmaps)
@@ -182,28 +208,35 @@ def generate_launch_description():
         name='mission_runner',
         output='screen',
         condition=IfCondition(run_mission),
+        parameters=[{
+            'zones_file': os.path.join(pkg_sim_share, 'worlds', 'sproscape_zones.yaml'),
+            'use_sim_time': use_sim_time,
+        }],
     )
 
     return LaunchDescription([
         # Launch Arguments
-        DeclareLaunchArgument('world', default_value=default_world, help='Path to SDF world file'),
-        DeclareLaunchArgument('headless', default_value='true', help='Run Gazebo headless (no GUI)'),
-        DeclareLaunchArgument('use_sim_time', default_value='true', help='Use simulation clock'),
-        DeclareLaunchArgument('spawn_x', default_value='0.0', help='Initial spawn X coordinate'),
-        DeclareLaunchArgument('spawn_y', default_value='0.0', help='Initial spawn Y coordinate'),
-        DeclareLaunchArgument('spawn_z', default_value='0.20', help='Initial spawn Z coordinate'),
-        DeclareLaunchArgument('spawn_yaw', default_value='0.0', help='Initial spawn Yaw (rad)'),
-        DeclareLaunchArgument('gps_mode', default_value='fixed', help='RTK mode: fixed | float | standalone | no_fix'),
-        DeclareLaunchArgument('run_localization', default_value='true', help='Launch dual EKF and navsat_transform'),
-        DeclareLaunchArgument('run_navigation', default_value='false', help='Launch Nav2 stack'),
-        DeclareLaunchArgument('run_mission', default_value='false', help='Launch IRC 2027 rules engine and scorer'),
+        DeclareLaunchArgument('world', default_value=default_world, description='Path to SDF world file'),
+        DeclareLaunchArgument('headless', default_value='true', description='Run Gazebo headless (no GUI)'),
+        DeclareLaunchArgument('use_sim_time', default_value='true', description='Use simulation clock'),
+        DeclareLaunchArgument('spawn_x', default_value='0.0', description='Initial spawn X coordinate'),
+        DeclareLaunchArgument('spawn_y', default_value='0.0', description='Initial spawn Y coordinate'),
+        DeclareLaunchArgument('spawn_z', default_value='0.20', description='Initial spawn Z coordinate'),
+        DeclareLaunchArgument('spawn_yaw', default_value='0.0', description='Initial spawn Yaw (rad)'),
+        DeclareLaunchArgument('gps_mode', default_value='fixed', description='RTK mode: fixed | float | standalone | no_fix'),
+        DeclareLaunchArgument('run_localization', default_value='true', description='Launch dual EKF and navsat_transform'),
+        DeclareLaunchArgument('run_navigation', default_value='false', description='Launch Nav2 stack'),
+        DeclareLaunchArgument('run_mission', default_value='false', description='Launch IRC 2027 rules engine and scorer'),
 
         # Nodes and Inclusions
         gz_resource_path,
+        ign_resource_path,
         gz_sim,
         robot_state_publisher,
         spawn_robot,
         bridge,
+        imu_frame_bridge,
+        camera_frame_bridge,
         sim_gps_rtk,
         vio_sim,
         localization,

@@ -7,6 +7,26 @@
       <real_time_factor>1.0</real_time_factor>
     </physics>
 
+    <!-- Core Gazebo system plugins -->
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu"/>
+    <plugin filename="ignition-gazebo-navsat-system" name="ignition::gazebo::systems::NavSat"/>
+
+    <!-- WGS-84 Competition Datum (DSU, Bengaluru) -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>12.8614</latitude_deg>
+      <longitude_deg>77.4380</longitude_deg>
+      <elevation>860.0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
     <!-- Sun directional light -->
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
@@ -40,14 +60,15 @@
         <visual name="visual">
           <geometry>
             <heightmap>
+              <use_terrain_paging>false</use_terrain_paging>
+              <texture>
+                <diffuse>materials/textures/martian_soil.png</diffuse>
+                <normal>materials/textures/flat_normal.png</normal>
+                <size>10</size>
+              </texture>
               <uri>sproscape_heightmap.png</uri>
               <size>120.0 120.0 3.39</size>
               <pos>60.0 60.0 0</pos>
-              <texture>
-                <diffuse>materials/textures/martian_soil.jpg</diffuse>
-                <normal>materials/textures/martian_soil_normal.jpg</normal>
-                <size>10</size>
-              </texture>
             </heightmap>
           </geometry>
         </visual>

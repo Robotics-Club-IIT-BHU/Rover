@@ -53,6 +53,35 @@ def write_grayscale_png(filename: str, width: int, height: int, data: bytes):
         f.write(signature + ihdr + idat + iend)
 
 
+def write_rgb_png(filename: str, width: int, height: int, data: bytes):
+    """Write an 8-bit RGB color PNG using standard library zlib and struct."""
+    signature = b'\x89PNG\r\n\x1a\n'
+
+    # IHDR chunk: width, height, bit depth 8, color type 2 (Truecolor RGB), compression 0, filter 0, interlace 0
+    ihdr_data = struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0)
+    ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr_data))
+    ihdr = struct.pack('>I', len(ihdr_data)) + b'IHDR' + ihdr_data + ihdr_crc
+
+    raw_scanlines = bytearray()
+    row_bytes = width * 3
+    for row in range(height):
+        raw_scanlines.append(0)  # Filter byte None
+        start = row * row_bytes
+        raw_scanlines.extend(data[start : start + row_bytes])
+
+    compressed = zlib.compress(bytes(raw_scanlines), level=9)
+    idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + compressed))
+    idat = struct.pack('>I', len(compressed)) + b'IDAT' + compressed + idat_crc
+
+    iend_crc = struct.pack('>I', zlib.crc32(b'IEND'))
+    iend = struct.pack('>I', 0) + b'IEND' + iend_crc
+
+    os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
+    with open(filename, 'wb') as f:
+        f.write(signature + ihdr + idat + iend)
+
+
+
 def generate_heightmap(dim: int = 257, size_m: float = 120.0) -> Tuple[bytes, Dict]:
     """
     Generate parametric height values representing the IRC 2027 Sproscape terrain:
@@ -145,6 +174,26 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float) -> str:
       <real_time_factor>1.0</real_time_factor>
     </physics>
 
+    <!-- Core Gazebo system plugins -->
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu"/>
+    <plugin filename="ignition-gazebo-navsat-system" name="ignition::gazebo::systems::NavSat"/>
+
+    <!-- WGS-84 Competition Datum (DSU, Bengaluru) -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>12.8614</latitude_deg>
+      <longitude_deg>77.4380</longitude_deg>
+      <elevation>860.0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
     <!-- Sun directional light -->
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
@@ -178,14 +227,15 @@ def generate_world_sdf(heightmap_rel_path: str, z_range_m: float) -> str:
         <visual name="visual">
           <geometry>
             <heightmap>
+              <use_terrain_paging>false</use_terrain_paging>
+              <texture>
+                <diffuse>materials/textures/martian_soil.png</diffuse>
+                <normal>materials/textures/flat_normal.png</normal>
+                <size>10</size>
+              </texture>
               <uri>{heightmap_rel_path}</uri>
               <size>{ARENA_SIZE_M} {ARENA_SIZE_M} {z_range_m:.2f}</size>
               <pos>{ARENA_SIZE_M / 2.0} {ARENA_SIZE_M / 2.0} 0</pos>
-              <texture>
-                <diffuse>materials/textures/martian_soil.jpg</diffuse>
-                <normal>materials/textures/martian_soil_normal.jpg</normal>
-                <size>10</size>
-              </texture>
             </heightmap>
           </geometry>
         </visual>
@@ -224,6 +274,27 @@ def generate_flat_world_sdf() -> str:
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
+
+    <!-- Core Gazebo system plugins -->
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu"/>
+    <plugin filename="ignition-gazebo-navsat-system" name="ignition::gazebo::systems::NavSat"/>
+
+    <!-- WGS-84 Competition Datum (DSU, Bengaluru) -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>12.8614</latitude_deg>
+      <longitude_deg>77.4380</longitude_deg>
+      <elevation>860.0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
     <light type="directional" name="sun">
       <cast_shadows>false</cast_shadows>
       <pose>0 0 50 0 0 0</pose>
@@ -265,13 +336,35 @@ def main():
     write_grayscale_png(png_path, HEIGHTMAP_DIM, HEIGHTMAP_DIM, png_bytes)
     print(f"Generated {png_path} ({HEIGHTMAP_DIM}x{HEIGHTMAP_DIM}, z-range: {meta['elevation_range_m']}m)")
 
-    # 2. Main Sproscape World SDF
+    # 2. Textures for Ogre2 rendering
+    tex_dir = os.path.join(args.output_dir, 'materials', 'textures')
+    os.makedirs(tex_dir, exist_ok=True)
+    soil_tex_path = os.path.join(tex_dir, 'martian_soil.png')
+    normal_tex_path = os.path.join(tex_dir, 'flat_normal.png')
+
+    # 64x64 procedural Martian reddish soil texture
+    soil_bytes = bytearray()
+    for y in range(64):
+        for x in range(64):
+            grain = int(math.sin(x * 0.7) * math.cos(y * 0.7) * 15)
+            r = min(255, max(0, 185 + grain))
+            g = min(255, max(0, 95 + int(grain * 0.6)))
+            b = min(255, max(0, 60 + int(grain * 0.4)))
+            soil_bytes.extend([r, g, b])
+    write_rgb_png(soil_tex_path, 64, 64, bytes(soil_bytes))
+
+    # Flat normal map (128, 128, 255)
+    normal_bytes = bytearray([128, 128, 255] * (32 * 32))
+    write_rgb_png(normal_tex_path, 32, 32, bytes(normal_bytes))
+    print(f"Generated terrain textures in {tex_dir}")
+
+    # 3. Main Sproscape World SDF
     world_sdf = generate_world_sdf('sproscape_heightmap.png', meta['elevation_range_m'])
     with open(world_path, 'w') as f:
         f.write(world_sdf)
     print(f"Generated {world_path}")
 
-    # 3. Flat test world SDF
+    # 4. Flat test world SDF
     with open(flat_world_path, 'w') as f:
         f.write(generate_flat_world_sdf())
     print(f"Generated {flat_world_path}")

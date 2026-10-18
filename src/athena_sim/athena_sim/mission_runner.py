@@ -265,7 +265,28 @@ try:
         def __init__(self):
             super().__init__('mission_runner')
 
-            self.scorer = MissionScorer(max_possible_points=500.0)
+            self.declare_parameter('zones_file', '')
+
+            zones_file = self.get_parameter('zones_file').value
+            delivery_markers = []
+            red_zones = []
+
+            if zones_file and os.path.exists(zones_file):
+                import yaml
+                try:
+                    with open(zones_file, 'r') as f:
+                        data = yaml.safe_load(f)
+                        delivery_markers = data.get('delivery_markers', [])
+                        red_zones = data.get('red_zones', [])
+                    self.get_logger().info(f"Loaded {len(delivery_markers)} markers, {len(red_zones)} red zones from {zones_file}")
+                except Exception as e:
+                    self.get_logger().warn(f"Failed to load zones_file {zones_file}: {e}")
+
+            self.scorer = MissionScorer(
+                delivery_markers=delivery_markers,
+                red_zones=red_zones,
+                max_possible_points=500.0,
+            )
             self.scorer.start_mission()
 
             self.sub_odom = self.create_subscription(

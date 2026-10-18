@@ -38,20 +38,22 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     pkg_share = get_package_share_directory('athena_gps_nav')
-    params = os.path.join(pkg_share, 'config', 'dual_ekf_navsat.yaml')
+    default_params = os.path.join(pkg_share, 'config', 'dual_ekf_navsat.yaml')
+    params_file = LaunchConfiguration('params_file')
     use_sim_time = LaunchConfiguration('use_sim_time')
     local_only = LaunchConfiguration('local_only')
 
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('local_only', default_value='false'),
+        DeclareLaunchArgument('params_file', default_value=default_params),
 
         Node(
             package='robot_localization',
             executable='ekf_node',
             name='ekf_local',
             output='screen',
-            parameters=[params, {'use_sim_time': use_sim_time}],
+            parameters=[params_file, {'use_sim_time': use_sim_time}],
             remappings=[('odometry/filtered', 'odometry/local')],
         ),
         Node(
@@ -60,7 +62,7 @@ def generate_launch_description():
             name='ekf_global',
             output='screen',
             condition=UnlessCondition(local_only),
-            parameters=[params, {'use_sim_time': use_sim_time}],
+            parameters=[params_file, {'use_sim_time': use_sim_time}],
             remappings=[('odometry/filtered', 'odometry/global')],
         ),
         Node(
@@ -69,7 +71,7 @@ def generate_launch_description():
             name='navsat_transform',
             output='screen',
             condition=UnlessCondition(local_only),
-            parameters=[params, {'use_sim_time': use_sim_time}],
+            parameters=[params_file, {'use_sim_time': use_sim_time}],
             remappings=[
                 ('imu', '/imu/data'),
                 ('gps/fix', '/gps/fix'),
