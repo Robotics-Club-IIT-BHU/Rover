@@ -60,3 +60,18 @@
   ros_type_name: "nav_msgs/msg/Odometry"
   gz_type_name: "ignition.msgs.Odometry"
   direction: GZ_TO_ROS
+
+# Arena Overview Spectator Camera HD Stream
+- ros_topic_name: "/arena/overview_camera/image_raw"
+  gz_topic_name: "/arena/overview_camera/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS
+
+# Base Station Spectator Camera HD Stream
+- ros_topic_name: "/arena/base_camera/image_raw"
+  gz_topic_name: "/arena/base_camera/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS
+

@@ -34,7 +34,6 @@ setup(
     maintainer_email='jashanpreetsinghbrar01@gmail.com',
     description='Simulation harness for Athena rover in Gazebo Fortress (IRC 2027)',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'sim_gps_rtk = athena_sim.sim_gps_rtk:main',
@@ -42,6 +41,8 @@ setup(
             'mission_runner = athena_sim.mission_runner:main',
             'generate_terrain = athena_sim.generate_terrain:main',
             'briefing_tool = athena_sim.briefing_tool:main',
+            'render_map = athena_sim.render_map:main',
+            'check_env = athena_sim.check_env:main',
         ],
     },
 )

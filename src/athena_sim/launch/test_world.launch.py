@@ -2,7 +2,7 @@
 test_world.launch.py
 
 Minimal launch file for verifying Athena rover spawning and basic sensor
-bridging in a lightweight flat world (test_flat.sdf).
+bridging in the sproscape world.
 """
 
 import os
@@ -20,7 +20,7 @@ def generate_launch_description():
     pkg_sim_share = get_package_share_directory('athena_sim')
     ros_gz_sim_share = get_package_share_directory('ros_gz_sim')
 
-    default_world = os.path.join(pkg_sim_share, 'worlds', 'test_flat.sdf')
+    default_world = os.path.join(pkg_sim_share, 'worlds', 'sproscape.sdf')
     bridge_cfg = os.path.join(pkg_sim_share, 'config', 'bridge.yaml')
     xacro_file = os.path.join(pkg_sim_share, 'urdf', 'athena_sim.urdf.xacro')
 
@@ -65,7 +65,7 @@ def generate_launch_description():
         package='ros_gz_sim',
         executable='create',
         name='spawn_athena',
-        arguments=['-name', 'athena', '-topic', 'robot_description', '-z', '0.2'],
+        arguments=['-name', 'athena', '-topic', 'robot_description', '-x', '-48.0', '-y', '-48.0', '-z', '0.25', '-Y', '0.7854'],
     )
 
     bridge = Node(

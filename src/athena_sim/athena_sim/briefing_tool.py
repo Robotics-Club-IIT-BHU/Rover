@@ -55,30 +55,30 @@ def generate_briefing(
         with open(zones_yaml_path, 'r') as f:
             data = yaml.safe_load(f)
     else:
-        # Default Sproscape arena layout (120m x 120m)
+        # Default Sproscape arena layout (120m x 120m centered at 0, 0)
         data = {
             'datum': {'lat': datum_lat, 'lon': datum_lon, 'alt': 860.0},
-            'start_line': {'x': 0.0, 'y': 0.0, 'name': 'Base Station Start Gate'},
+            'start_line': {'x': -48.0, 'y': -48.0, 'name': 'Base Station Start Gate'},
             'rado_objects': [
-                {'id': 'TOOL_1', 'name': 'Heavy Wrench (≤7cm dia)', 'x': 25.0, 'y': 35.0, 'mass_kg': 1.8},
-                {'id': 'TOOL_HAMMER', 'name': 'Hammer / Mallet', 'x': 28.0, 'y': 38.0, 'mass_kg': 1.5},
-                {'id': 'TOOL_2', 'name': 'Screwdriver Set', 'x': 40.0, 'y': 60.0, 'mass_kg': 0.9},
-                {'id': 'BOX_1',  'name': 'Instrument Toolbox', 'x': 70.0, 'y': 45.0, 'mass_kg': 4.5},
-                {'id': 'ROCK_1', 'name': 'Basalt Specimen A', 'x': 55.0, 'y': 85.0, 'mass_kg': 3.2},
+                {'id': 'TOOL_1', 'name': 'Heavy Wrench (≤7cm dia)', 'x': -28.0, 'y': -25.0, 'mass_kg': 1.8},
+                {'id': 'TOOL_HAMMER', 'name': 'Hammer / Mallet', 'x': -22.0, 'y': -20.0, 'mass_kg': 1.5},
+                {'id': 'TOOL_2', 'name': 'Screwdriver Set', 'x': -5.0, 'y': 5.0, 'mass_kg': 0.9},
+                {'id': 'BOX_1',  'name': 'Instrument Toolbox', 'x': 18.0, 'y': -5.0, 'mass_kg': 4.5},
+                {'id': 'ROCK_1', 'name': 'Basalt Specimen A', 'x': 5.0, 'y': 30.0, 'mass_kg': 3.2},
             ],
             'delivery_markers': [
-                {'id': 'DROP_ALPHA', 'name': 'Marker Alpha (Green Pad)', 'x': 30.0, 'y': 70.0},
-                {'id': 'DROP_BRAVO', 'name': 'Marker Bravo (Blue Pad)',  'x': 80.0, 'y': 80.0},
-                {'id': 'DROP_CACHE', 'name': 'ABEx Cache Drop / Pickup', 'x': 60.0, 'y': 30.0},
+                {'id': 'DROP_ALPHA', 'name': 'Marker Alpha (Green Pad)', 'x': -10.0, 'y': 35.0},
+                {'id': 'DROP_BRAVO', 'name': 'Marker Bravo (Blue Pad)',  'x': 35.0, 'y': 35.0},
+                {'id': 'DROP_CACHE', 'name': 'ABEx Cache Drop / Pickup', 'x': 15.0, 'y': -25.0},
             ],
             'abex_sites': [
-                {'id': 'ABEX_SITE_A', 'name': 'Stratigraphy Outcrop', 'x': 45.0, 'y': 95.0},
-                {'id': 'ABEX_SITE_B', 'name': 'Fine-Soil Basin',       'x': 90.0, 'y': 100.0},
+                {'id': 'ABEX_SITE_A', 'name': 'Stratigraphy Outcrop', 'x': 0.0, 'y': 42.0},
+                {'id': 'ABEX_SITE_B', 'name': 'Fine-Soil Basin',       'x': 40.0, 'y': -20.0},
             ],
-            'idmo_panel': {'x': 15.0, 'y': 50.0, 'name': 'Mock Maintenance Panel (1.8m)'},
+            'idmo_panel': {'x': -30.0, 'y': -10.0, 'name': 'Mock Maintenance Panel (1.8m)'},
             'red_zones': [
-                {'id': 'RED_ZONE_1', 'name': 'Contaminated Zone North', 'center_x': 50.0, 'center_y': 75.0, 'radius_m': 6.0},
-                {'id': 'RED_ZONE_2', 'name': 'Contaminated Crater Rift', 'center_x': 20.0, 'center_y': 90.0, 'radius_m': 8.0},
+                {'id': 'RED_ZONE_1', 'name': 'Contaminated Zone North Trench', 'center_x': 10.0, 'center_y': 20.0, 'radius_m': 6.0},
+                {'id': 'RED_ZONE_2', 'name': 'Contaminated Crater Rift', 'center_x': -35.0, 'center_y': 32.0, 'radius_m': 7.5},
             ],
         }
 
