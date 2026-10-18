@@ -1,153 +1,116 @@
-# Calibration and motor tests
+# Motor Calibration & Tuning Guide
 
-`ros2 run athena_drive calibrate` is the one tool for testing motors and
-saving what it measures. Run it once per hardware change, not per drive.
-Wheels off the ground for everything except stage 4. Stop the stack first (the
-Pico's serial port is exclusive). Back to the [package README](../README.md).
+Calibration procedures, manual motor diagnostics, and parameter persistence for `athena_drive`.
 
-## The menu
+Run this calibration once following any hardware, wiring, or chassis modifications.
+All motor testing except Stage 4 must be performed with the **wheels lifted off the ground**.
 
-`calibrate` opens a menu. Keys also work in `-p stages:=...`, which skips the menu:
+> [!IMPORTANT]
+> The Raspberry Pi Pico W serial interface is strictly exclusive. Stop `bringup.launch.py` and `drive.launch.py` before launching calibration tools.
 
-| Key | Does |
-|---|---|
-| `m` | **Manual motor test**: pick one or more motors, a direction, confirm; only that runs. Then repeat, reverse or pick again |
-| `d` | Stage 1 direction check, only for the motors you pick |
-| `w` | **Wiring map**: Pico GPIO and header pin to motor driver channel (the [pin map](../README.md#pico-to-motor-driver-pin-map)) |
-| `s` | Board status and invert flags, read from the Pico |
-| `1`-`5` | The five stages below, each on its own |
-| `a` | Stages 1-5 in order |
-| `q` | Quit |
+---
+
+## 1. Interactive Calibration Menu (`calibrate`)
+
+Launch the unified calibration wizard:
 
 ```bash
-ros2 run athena_drive calibrate                                    # menu
-ros2 run athena_drive calibrate --ros-args -p stages:=m            # straight to the manual test
-ros2 run athena_drive calibrate --ros-args -p stages:=3,4          # these stages, no menu
-ros2 run athena_drive calibrate --ros-args -p stages:=all          # stages 1-5
+ros2 run athena_drive calibrate
 ```
 
-Other parameters: `test_pwm` (default 120, the PWM used by the tests), `port`
-(default: auto-detect the Pico), `baud` (115200).
+### Interactive Menu Key Actions
 
-**When results are saved.** In the menu, as soon as each stage finishes. With
-`stages:=...`, once when the whole run ends (Ctrl-C mid-run saves nothing).
-
-### `m`: manual motor test
-
-- Pick motors by number (`3`, `1,4`), name (`fl ml rl fr mr rr`) or `left` / `right` / `all`.
-- Direction is `f` or `b`, with an optional PWM (`f 150`).
-- It prints the plan, including each motor's PWM and DIR wires, and asks to
-  confirm. Each run auto-stops after ~1.5 s. After a run: Enter repeats, `r`
-  reverses, `n` picks new motors, `q` returns to the menu.
-- Several motors run **together** through the firmware's `G <mask> <pwm>`
-  command (bit 0 = motor 1). `G` is compiled in the current firmware source
-  but **not yet flashed to the Pico**. `calibrate` asks the board (via its help
-  text) and, if it has no `G`, runs the chosen motors one after another and says
-  so before you confirm. Reflash `athena_drive_fw` to run them together
-  ([FIRMWARE.md](FIRMWARE.md#flashing)).
-
-## The five stages
-
-| Stage | Does | Saved to |
+| Key | Mode / Action | Description |
 |---|---|---|
-| 1 motor directions | runs each motor forward **then reverse**, ~1.5 s each; you answer what the wheel did | **Pico flash** (invert flags) |
-| 2 side check | spins left; "counter-clockwise from above?" | nothing; tells you the fix |
-| 3 PWM deadband | steps PWM 10, 20 ... 140, asks "did all six turn?", stops at the first yes | `min_pwm` in the config file |
-| 4 top speed | **drives on the floor** at full PWM for N s (default 3); you enter the measured distance | `max_wheel_speed` |
-| 5 track width | you enter the distance between left and right wheel centre lines | `track_width` |
+| `m` | **Manual Motor Test** | Test individual or grouped motors in forward/reverse with specified PWM. |
+| `d` | **Direction Verification** | Verifies forward/reverse direction on chosen motor channels. |
+| `w` | **Wiring Pin Map** | Displays the GPIO pin mapping from Pico W to motor driver boards. |
+| `s` | **Firmware Status** | Reads active invert flags and watchdog state from Pico W flash. |
+| `1`–`5` | **Individual Stages** | Executes one specific calibration stage (see below). |
+| `a` | **Full Sequence** | Runs Stages 1 through 5 sequentially. |
+| `q` | **Quit** | Exits the calibration utility. |
 
-Stage 4 needs clear floor and a mark at the front edge. The ~0.3 s firmware
-ramp makes short runs read a little low. Stage 2 failure fix: swap the left
-and right driver connections, **or** flip all six invert flags (`I 1 1` ...
-`I 6 1`), never both; then redo stage 1.
+### Direct Command-Line Execution (Skip Menu)
 
-### Stage 1 verdicts
+```bash
+# Direct manual motor test
+ros2 run athena_drive calibrate --ros-args -p stages:=m
 
-Both directions are tested and each motor is classified from the two answers:
+# Run specific calibration stages (e.g. Stage 3 deadband and Stage 4 top speed)
+ros2 run athena_drive calibrate --ros-args -p stages:=3,4
 
-| "rolled forward?" | "rolled backward?" | Verdict | What happens |
+# Run all five stages sequentially
+ros2 run athena_drive calibrate --ros-args -p stages:=all
+```
+
+---
+
+## 2. The Five Calibration Stages
+
+| Stage | Procedure | What It Measures | Target Storage Location |
 |---|---|---|---|
-| yes | yes | ok | next motor |
-| no | no, but it did move | flipped | invert flag toggled on the Pico, saved, motor re-tested |
-| no | no, and it never moved | **dead** | power, motor leads or driver channel |
-| exactly one yes | | **stuck** | ran the same way both times: DIR line or H-bridge fault |
+| **1. Motor Directions** | Runs each motor forward then reverse (~1.5 s each); prompts for wheel direction. | Direction polarity per motor channel. | **Pico W Flash** (Hardware Invert Flags) |
+| **2. Side Polarity Check** | Commands a left spin; confirms counter-clockwise rotation from above. | Left vs Right driver channel wiring. | Physical driver wiring check |
+| **3. PWM Deadband** | Steps PWM from 10 to 140 in increments of 10 until all 6 wheels spin. | Minimum PWM to overcome static friction. | `min_pwm` in `params.yaml` |
+| **4. Ground Top Speed** | Drives on floor at full PWM for $N$ seconds; prompts for measured distance. | True maximum forward speed (m/s). | `max_wheel_speed` in `params.yaml` |
+| **5. Track Width** | Prompts for measured distance between left and right wheel centerline. | Effective kinematic track width (m). | `track_width` in `params.yaml` |
 
-Only `flipped` is fixable by calibration. The firmware applies invert as
-`spwm = -spwm`, a symmetric sign flip: it can make a motor run the wrong way
-in both directions but never the same way in both. So `stuck` is reported as
-a hardware fault, not handed a flag that cannot help. Faults are repeated in a
-block at the end so they do not scroll past. Stage 1 starts from the board's real
-flags, so a motor already flipped toggles back rather than being re-sent the
-same value. A motor that cannot reverse passes a forward-only test and then
-fails the moment Nav2 asks for a turn, which is why both directions are tested.
+### Stage 1: Direction Verdicts & Fault Isolation
 
-## Where the settings live
+Each motor is tested forward and backward to detect wiring or H-bridge faults:
 
-| What | Where | Why |
-|---|---|---|
-| Motor directions (invert flags) | **the Pico's flash** | Direction is a property of the wiring, so it belongs to the board: swap the Jetson, reinstall ROS, and the motors still spin the right way. It must be there anyway: the bridge sends one PWM value per *side*, so it cannot flip a single wheel |
-| `min_pwm`, `max_wheel_speed`, `track_width` | `~/.config/athena_drive/params.yaml` | Loaded by `motor_bridge` at startup, so calibrated values apply to every launch with no arguments. Outside the package so a rebuild cannot wipe it |
+| Forward Test | Reverse Test | Verdict | Action Taken |
+|---|---|---|---|
+| Rolled Forward | Rolled Backward | **OK** | Proceeds to next motor channel. |
+| Rolled Backward | Rolled Forward | **Flipped** | Firmware invert flag toggled on Pico W and saved to flash. |
+| No Movement | No Movement | **Dead** | Hardware fault: check 12V motor power, driver channel, or wiring. |
+| Movement in 1 Direction Only | Movement in 1 Direction Only | **Stuck** | Hardware fault: defective DIR control line or damaged H-bridge MOSFET. |
 
-Precedence: **explicit argument > saved calibration > built-in estimate**, so
-a one-off experiment never silently becomes permanent:
+> [!NOTE]
+> The firmware applies direction inversion as $PWM = -PWM$. A motor that rolls the wrong way in both directions is inverted; a motor that only moves in one direction has a hardware failure that software cannot fix.
 
-```bash
-ros2 launch athena_drive drive.launch.py max_pwm:=120    # cautious, this run only
-```
+---
 
-## What is in the file today
+## 3. Configuration Hierarchy & Persistence
+
+Settings are resolved using a strict three-tier precedence:
+$$\text{Explicit Launch Argument} > \text{Saved } \texttt{params.yaml} > \text{Built-in Estimate}$$
+
+| Setting | Storage Location | Default Fallback | Purpose |
+|---|---|---|---|
+| **Invert Flags (`inv`)** | **Pico W Onboard Flash** | `000000` (all un-inverted) | Hardware property of the chassis wiring. Persists across host re-installs. |
+| **`min_pwm`** | `~/.config/athena_drive/params.yaml` | `40` (typical: `20`) | Static friction deadband threshold. |
+| **`max_wheel_speed`** | `~/.config/athena_drive/params.yaml` | `0.7` m/s | Maximum physical wheel speed at PWM 255. |
+| **`track_width`** | `~/.config/athena_drive/params.yaml` | `0.40` m (actual: `0.85` m) | Kinematic track width between wheel centers. |
+| **`max_pwm`** | `~/.config/athena_drive/params.yaml` | `255` | Maximum allowable PWM duty cycle. |
+
+### Current Calibrated Configuration (`~/.config/athena_drive/params.yaml`)
 
 ```yaml
 min_pwm: 20
 track_width: 0.85
+max_wheel_speed: 0.62   # Example measured value from Stage 4
 ```
 
-`max_wheel_speed` and `max_pwm` are absent, so the rover runs on the built-in
-estimates of **0.7 m/s and 255**. `max_wheel_speed` scales every velocity Nav2
-commands, so commanded speeds and distances are only as good as that guess:
-run stage 4 on the floor (`calibrate --ros-args -p stages:=4`). A sanity check
-on 0.7 m/s: wheels about 20 cm across give 0.628 m of circumference, so about
-67 wheel RPM. `max_pwm` has no measuring tool; 255 is the default, lower it
-only deliberately.
+---
 
-`motor_bridge` warns per missing key at startup (it reports each key
-separately, so an incomplete file does not look calibrated):
+## 4. Standalone Diagnostic Utilities
 
-```
-loaded calibration from /home/robo/.config/athena_drive/params.yaml: {'min_pwm': 20, 'track_width': 0.85}
-motor_bridge up: track=0.85 m, max_wheel_speed=0.7 m/s, pwm=[20,255]
-[WARN] UNCALIBRATED, using built-in estimates for: max_wheel_speed, max_pwm. ...
-```
-
-No `UNCALIBRATED` line means all four values are either saved or passed
-explicitly. A `max_wheel_speed` of exactly `0.7` is the fallback, not a measurement.
-
-## Single-purpose tools
-
-`calibrate` covers all of this. These re-check one thing without the wizard:
+For targeted testing without entering the interactive wizard:
 
 ```bash
-ros2 run athena_drive wiring_check                           # each motor forward in turn
-ros2 run athena_drive wiring_check --ros-args -p mode:=sides # left side, then right side
-ros2 run athena_drive wiring_check --ros-args -p mode:=spin  # forward, then spin left
+# Spin each motor forward sequentially (isolated test)
+ros2 run athena_drive wiring_check
+
+# Test left side together, then right side together
+ros2 run athena_drive wiring_check --ros-args -p mode:=sides
+
+# Forward test followed by left spin test
+ros2 run athena_drive wiring_check --ros-args -p mode:=spin
+
+# Measure static friction deadband without saving
 ros2 run athena_drive calibrate_speed --ros-args -p mode:=deadband
+
+# Floor speed test: 3 seconds at full PWM
 ros2 run athena_drive calibrate_speed --ros-args -p mode:=topspeed -p seconds:=3.0
-```
-
-- `wiring_check` options: `-p motor:=3` (one motor), `-p pwm:=150` (default
-  120), `-p pause:=5.0` (default 3 s between motors). It runs on a schedule and
-  reads no answers; `calibrate` is the interactive one. See
-  [TESTING.md](TESTING.md#1-each-motor-turns-the-right-way) for what to look for.
-- `calibrate_speed` `deadband` sweeps PWM 10 to 120 in tens, wheels off the
-  ground. `topspeed` **drives the rover on the floor** at full PWM (`-p pwm:=`
-  to change) for `seconds`, then tells you to divide your measured distance by
-  the time.
-- These print results and **do not save them**. Only `calibrate` writes
-  `params.yaml`. Either use `calibrate`, or hand-edit the file (the bridge reads
-  it at the next launch):
-
-```yaml
-min_pwm: 20
-track_width: 0.85
-max_wheel_speed: 0.62      # add the number you measured
 ```

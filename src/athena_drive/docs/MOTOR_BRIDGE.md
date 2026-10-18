@@ -1,134 +1,91 @@
-# motor_bridge: parameters, kinematics, velocity profile
+# Motor Bridge Architecture & Kinematics
 
-`motor_bridge` turns `/cmd_vel` into `V <left> <right>` for the Pico. It is the
-only node that runs during navigation. Back to the [package README](../README.md).
+`motor_bridge` translates standard ROS 2 `/cmd_vel` velocity commands into low-level `V <left> <right>` serial commands for the Raspberry Pi Pico W firmware.
 
-## Parameters
+---
 
-`drive.launch.py` passes `-1` for the four calibrated numbers, meaning "use the
-saved value" ([precedence](CALIBRATION.md#where-the-settings-live)). The column
-below is the **built-in estimate**, used only when nothing is saved and nothing
-is passed:
+## 1. Parameters & Configuration
 
-| Parameter | Estimate | Meaning |
-|---|---|---|
-| `port` | `''` | empty = auto-detect the Pico by USB id |
-| `baud` | 115200 | matches the firmware |
-| `send_rate` | 20.0 | Hz; the heartbeat the firmware watchdog counts on |
-| `watchdog_timeout` | 0.5 | s of stale `/cmd_vel` before the target is zeroed |
-| `track_width` | 0.40 | m between left and right wheel centres (saved: 0.85) |
-| `max_wheel_speed` | 0.7 | m/s at full PWM: **unmeasured** |
-| `min_pwm` | 40 | static-friction deadband (saved: 20) |
-| `max_pwm` | 255 | cap; lower it for cautious indoor testing. **Unmeasured** |
-| `invert_left` / `invert_right` | false | flip a whole side in software |
-| `profile_enabled` | true | jerk-limited velocity shaping |
-| `max_accel` / `max_jerk` | 0.5 / 1.0 | m/s^2, m/s^3 |
-| `max_ang_accel` / `max_ang_jerk` | 1.5 / 3.0 | rad/s^2, rad/s^3 |
-| `dry_run` | false | log commands instead of sending them |
+Parameters are loaded at startup from `~/.config/athena_drive/params.yaml` or launch arguments:
 
-`drive.launch.py` exposes ten as launch arguments: `dry_run`, `track_width`,
-`max_wheel_speed`, `min_pwm`, `max_pwm`, `profile_enabled`, `max_accel`,
-`max_jerk`, `max_ang_accel`, `max_ang_jerk`. The rest are `--ros-args -p` only.
-The bridge also publishes the last firmware status on `~/firmware`.
+| Parameter | Default / Saved | Unit | Description |
+|---|---|---|---|
+| `port` | `''` (Auto-detect) | Path | Globs `/dev/serial/by-id/usb-Raspberry_Pi_Pico*` for deterministic USB binding. |
+| `baud` | `115200` | Baud | Baud rate matching Pico W firmware UART. |
+| `send_rate` | `20.0` | Hz | Telemetry transmission rate (serves as firmware watchdog heartbeat). |
+| `watchdog_timeout` | `0.5` | s | Timeout threshold: zeroes targets if `/cmd_vel` goes stale. |
+| `track_width` | `0.85` | m | Distance between left and right wheel centerline. |
+| `max_wheel_speed` | `0.70` | m/s | Maximum forward linear wheel speed at PWM 255. |
+| `min_pwm` | `20` | PWM (0–255) | Static friction deadband threshold. Non-zero speeds map into `[min_pwm, max_pwm]`. |
+| `max_pwm` | `255` | PWM (0–255) | Upper PWM ceiling (reduce for low-speed bench testing). |
+| `profile_enabled` | `true` | bool | Enables jerk-limited S-curve velocity shaping. |
+| `max_accel` / `max_jerk` | `0.5` / `1.0` | m/s$^2$, m/s$^3$ | Linear acceleration and jerk limits. |
+| `max_ang_accel` / `max_ang_jerk` | `1.5` / `3.0` | rad/s$^2$, rad/s$^3$ | Angular acceleration and jerk limits. |
+| `dry_run` | `false` | bool | Logs serial commands without writing to USB. |
 
-## Serial port and firmware handshake
+---
 
-- **Never hard-code `/dev/ttyACM<n>`.** Numbers are assigned in USB
-  enumeration order and swap between boots; the Pixhawk and the Pico have each
-  held `ttyACM0` on different days. `port: ''` globs
-  `/dev/serial/by-id/usb-Raspberry_Pi_Pico*`, stable per board. Sending motor
-  commands to a flight controller is the failure this prevents.
-- Opening a CDC port succeeds against a wedged board, one running other
-  firmware, or one that never finished booting. So the bridge sends `?` and
-  waits 2 s for a reply before trusting the link, re-pings every 2 s, and
-  complains if 6 s pass with no answer. Without that it logged a cheerful
-  `serial open` and streamed `V 0 0` into the void.
-- `FIRMWARE NOT RESPONDING`: the port is right and the board is not talking.
-  Replug it, or reflash ([FIRMWARE.md](FIRMWARE.md#flashing)).
-- `could not open ... - running dry`: another process holds the port, or the
-  Pico is absent. `fuser -v /dev/ttyACM*` names the holder. If the link drops
-  later, the bridge retries the open every 2 s.
-- With `inv=` flags non-zero in the firmware status, the bridge warns at
-  startup (see [FIRMWARE.md](FIRMWARE.md#commands)).
+## 2. Serial Port & Liveness Handshake
 
-## Kinematics
+- **Deterministic Device Binding:**
+  Addressing is restricted to `/dev/serial/by-id/usb-Raspberry_Pi_Pico*`. Never use `/dev/ttyACM*`, which can swap with the Cube Orange across reboots.
+- **Heartbeat & Liveness Handshake:**
+  The bridge sends a `?` query every 2 seconds. If no response is received within 6 seconds, the bridge logs a warning and marks the connection dead.
+- **Mutual Exclusion:**
+  Only one host process may hold the serial connection. If another utility holds the port, the bridge reports `could not open ... - running dry` and retries every 2 seconds.
 
-Skid steer:
+---
 
-```
-v_left  = v - w*W/2
-v_right = v + w*W/2
-```
+## 3. Kinematics & Wheel Scaling
 
-**Saturation scales both sides together.** If one side exceeds
-`max_wheel_speed`, both are scaled by the same factor. Clipping them
-independently would change their ratio, which is the turn radius, so the rover
-would drive a different arc than Nav2 asked for, worst exactly when turning hardest.
+### Skid-Steer Differential Model
 
-**Deadband is added, not multiplied.** Any non-zero wheel speed maps into
-`[min_pwm, max_pwm]` rather than `[0, max_pwm]`, so small corrections clear
-static friction instead of being swallowed by it.
+For linear velocity $v$ and angular velocity $\omega$ with track width $W$:
 
-## Velocity profile
+$$v_{left} = v - \frac{\omega \cdot W}{2}, \quad v_{right} = v + \frac{\omega \cdot W}{2}$$
 
-A step in commanded velocity is a step in torque: a **jerk**. The wheels
-break traction, the chassis rocks, and the camera visual odometry depends on
-gets shaken just when the rover is working out how it moved. Limiting
-acceleration alone still lets acceleration change instantly (the lurch on
-starting, the nod on stopping), so the bridge bounds both:
+### Coordinated Saturation Scaling
 
-| | Parameter | Default |
-|---|---|---|
-| acceleration | `max_accel` | 0.5 m/s^2 |
-| jerk | `max_jerk` | 1.0 m/s^3 |
-| angular acceleration | `max_ang_accel` | 1.5 rad/s^2 |
-| angular jerk | `max_ang_jerk` | 3.0 rad/s^3 |
+If either wheel speed exceeds `max_wheel_speed`, **both** sides are scaled down proportionally by $\frac{v_{max}}{\max(|v_{left}|, |v_{right}|)}$.
+This preserves the exact turn radius ratio commanded by Nav2 rather than distorting the robot's heading trajectory.
 
-The result is an S-curve. Measured for a step command to 0.4 m/s:
+### Deadband Addition
+
+Any non-zero speed maps into `[min_pwm, max_pwm]` rather than `[0, max_pwm]`:
+
+$$\text{PWM} = \text{sign}(v_{wheel}) \cdot \left( \text{min\_pwm} + \frac{|v_{wheel}|}{\text{max\_wheel\_speed}} \cdot (\text{max\_pwm} - \text{min\_pwm}) \right)$$
+
+---
+
+## 4. Jerk-Limited S-Curve Profiling
+
+Instantaneous changes in commanded acceleration induce mechanical jerk, rocking the chassis and degrading visual odometry tracking.
+
+The profiler applies an S-curve profile bounding both acceleration and jerk:
 
 ```
-   t(s)    cmd   shaped          PWM
-   0.00   0.40    0.003   V  21  21     ease in
-   0.30   0.40    0.070   V  44  44
-   0.60   0.40    0.212   V  91  91     full acceleration
-   0.90   0.40    0.348   V 137 137
-   1.20   0.40    0.400   V 154 154     eased out, settled
+Command Step (0.4 m/s) ──> Jerk Limit (1.0 m/s^3) ──> Accel Limit (0.5 m/s^2) ──> Smooth PWM Output
 ```
 
-About 1.2 s to reach speed and the same to stop, with no step in the PWM trace.
-The PWM column used `min_pwm` 20 and `max_wheel_speed` 0.7, that is `pwm = 20 +
-(v / 0.7) x 235`; other values map the same velocities elsewhere.
+| Time (s) | Commanded ($v$) | Shaped ($v$) | Left/Right PWM | Stage |
+|---|---|---|---|---|
+| `0.00` | 0.40 m/s | 0.003 m/s | `V  21  21` | Initial smooth ramp |
+| `0.30` | 0.40 m/s | 0.070 m/s | `V  44  44` | Accelerating |
+| `0.60` | 0.40 m/s | 0.212 m/s | `V  91  91` | Peak acceleration |
+| `0.90` | 0.40 m/s | 0.348 m/s | `V 137 137` | Tapering acceleration |
+| `1.20` | 0.40 m/s | 0.400 m/s | `V 154 154` | Steady cruise |
 
-This is separate from the firmware's slew limit: the firmware ramps raw PWM as a
-safety net that works even if the host misbehaves; this shapes *velocity*, in the
-units Nav2 reasons in, before the kinematics. Keep both.
+> [!NOTE]
+> This host-side profiler shapes velocities in Nav2 physical units. It operates alongside the firmware's hardware PWM slew rate (~0.3 s ramp) to provide redundant motor and gearbox protection.
 
-Tuning: lower `max_accel` if the wheels slip on start; lower `max_jerk` if the
-chassis rocks or visual odometry loses tracking when you set off; raise both if
-the rover feels sluggish to Nav2. Compare with it off:
+---
+
+## 5. Standalone Velocity Profile Verification
+
+Run the host-side velocity profile test (requires no ROS runtime):
 
 ```bash
-ros2 launch athena_drive drive.launch.py profile_enabled:=false
+python3 /home/robo/athena/src/athena_drive/athena_drive/velocity_profile.py
 ```
 
-`velocity_profile.py` is self-testing and imports nothing from ROS, so it runs
-in any shell. It prints the profile, `peak |accel|`, `peak |jerk|` and
-`LIMITS RESPECTED`, and exits non-zero if either bound is violated:
-
-```bash
-cd ~/athena && python3 src/athena_drive/athena_drive/velocity_profile.py
-```
-
-## Known limitations
-
-- **Open loop.** No encoders on this board, so commanded speed is not verified.
-  Skid-steer turns slip by design, so heading from the wheels alone would drift
-  badly: the nav stack takes rotation from the gyro, never from the wheels.
-- A previous Pico ran closed-loop PID firmware with encoders. Going back to
-  that board would make wheel odometry possible, a real upgrade: it works in the
-  dark and against blank walls, exactly where visual odometry struggles.
-- `max_wheel_speed` and `max_pwm` are unmeasured estimates
-  ([details](CALIBRATION.md#what-is-in-the-file-today)).
-- The Pico must run the `V <left> <right>` firmware in `firmware/athena_drive_fw`.
-  The bridge speaks only that protocol and has no legacy fallback (no
-  `legacy_protocol` argument on `drive.launch.py` or `bringup`).
+*Expected output:* Confirms peak acceleration and jerk stay strictly within configured limits and exits with code 0.

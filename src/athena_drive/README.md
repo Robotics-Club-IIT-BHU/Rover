@@ -1,154 +1,129 @@
 # athena_drive
 
-Motor drive for the Athena rover: `/cmd_vel` -> Raspberry Pi Pico W -> 6 DC
-motors, plus the tools to check the wiring and calibrate the speeds.
+Motor control subsystem for the Athena rover: converts ROS 2 `/cmd_vel` velocity commands into serial packets for a Raspberry Pi Pico W controlling 6 DC motors.
 
-## Safety
+---
 
-- **Prop the rover up so the wheels spin free for every test**, except
-  `calibrate` stage 4 and `calibrate_speed -p mode:=topspeed`, which drive on the
-  floor to measure distance and say so before they move. A reversed motor found on
-  the bench is a five-minute fix; found on the floor it is a chase.
-- Two watchdogs: `motor_bridge` zeroes its command if `/cmd_vel` is stale for
-  0.5 s, and the Pico firmware stops the motors if serial is quiet for 500 ms.
-  Pulling the Pico's USB cable is the fastest stop you have.
-- **The Pico's serial port is exclusive.** `motor_bridge`, `calibrate`,
-  `wiring_check` and `calibrate_speed` all want it, and `bringup.launch.py` already
-  starts a `motor_bridge`. The second one loses, quietly: `calibrate` exits with
-  `could not open`; a second bridge logs `could not open ... - running dry` and
-  streams to nothing. A port conflict is the commonest cause of "`/cmd_vel` does
-  nothing". Stop the stack before using the calibration tools, and check who
-  holds the port with:
+## Safety Guidelines
+
+> [!CAUTION]
+> **Keep wheels off the ground during testing.** Always prop up the rover on a bench for motor tests (except calibration stage 4 and topspeed tests which drive on the floor). A reversed motor found in the air is trivial to fix; on the floor it causes runaway motion.
+
+- **Serial Port Exclusivity:** The Raspberry Pi Pico W serial port (`/dev/serial/by-id/usb-Raspberry_Pi_Pico*`) can be held by only **one process** at a time.
+  - `bringup.launch.py` already includes `motor_bridge`.
+  - To run calibration tools, stop bringup first.
+  - Check which process holds the port:
+    ```bash
+    fuser -v /dev/ttyACM*
+    ```
+- **Failsafe Watchdogs:**
+  - `motor_bridge` zeroes motor velocities if `/cmd_vel` stops arriving for >0.5 seconds.
+  - Pico firmware stops all motor PWM if serial data is silent for >500 ms.
+  - Unplugging the Pico's USB cable provides an immediate hardware emergency stop.
+
+---
+
+## Quick Start
 
 ```bash
+# 1. Check serial port is free
 fuser -v /dev/ttyACM*
-```
 
-## Quick start
-
-```bash
-# ONE TIME: guided, interactive, saves what it measures
+# 2. Run the interactive calibration wizard (wheels elevated!)
 ros2 run athena_drive calibrate
 
-# motors only, no navigation
+# 3. Launch motor bridge standalone (without full navigation)
 ros2 launch athena_drive drive.launch.py
-ros2 run athena_drive teleop         # arrows drive; releasing them stops the rover
+
+# 4. Keyboard teleop (arrows drive, space stops, releasing key halts)
+ros2 run athena_drive teleop
 ```
 
-### What each command runs
+---
 
-| Command | What it runs | Opens the Pico's port? |
+## Pico Pinout & Wiring Map
+
+![Pico Wiring](../docs/img/pico_wiring.png)
+
+Wiring connections between Raspberry Pi Pico W header pins and motor driver boards:
+
+| Motor Channel | Location | Driver Channel | PWM Pin | DIR Pin | Forward DIR State |
+|---|---|---|---|---|---|
+| **Motor 1** | Front-Left | FRONT M1 | GP8 (Pin 11) | GP9 (Pin 12) | LOW |
+| **Motor 2** | Mid-Left | MID M1 | GP18 (Pin 24) | GP19 (Pin 25) | LOW |
+| **Motor 3** | Rear-Left | REAR M1 | GP10 (Pin 14) | GP11 (Pin 15) | LOW |
+| **Motor 4** | Front-Right | FRONT M2 | GP6 (Pin 9) | GP7 (Pin 10) | HIGH |
+| **Motor 5** | Mid-Right | MID M2 | GP20 (Pin 26) | GP21 (Pin 27) | HIGH |
+| **Motor 6** | Rear-Right | REAR M2 | GP12 (Pin 16) | GP13 (Pin 17) | HIGH |
+
+> [!NOTE]
+> - Ground reference: Each motor driver GND must connect to a Pico GND pin (pins 3, 8, 13, 18, 23, or 28).
+> - Configuration sync: Firmware pin `#define` statements in `firmware/athena_drive_fw/athena_drive_fw.ino` match `athena_drive/calibrate.py`.
+
+---
+
+## Motor Calibration Wizard
+
+Run the interactive calibration wizard:
+```bash
+ros2 run athena_drive calibrate
+```
+
+### Menu Options
+| Key | Action | Notes |
 |---|---|---|
-| `ros2 run athena_drive calibrate` | the interactive menu: motor tests, direction check, deadband, top speed, track width ([below](#calibration)) | yes |
-| `ros2 launch athena_drive drive.launch.py` | one node, `motor_bridge`: turns `/cmd_vel` into `V <left> <right>` serial commands for the Pico | yes |
-| `ros2 run athena_drive teleop` | a keyboard node that publishes `/cmd_vel` (arrows, `q/z` linear speed, `e/c` angular speed, space stop). Needs `motor_bridge` running to do anything | no |
-| `ros2 run athena_drive wiring_check` | drives motors on a schedule, no questions asked ([modes](docs/CALIBRATION.md)) | yes |
+| `m` | **Manual motor test** | Select individual motors and test forward/reverse rotation |
+| `d` | **Direction check** | Verify that left wheels spin forward on LOW and right on HIGH |
+| `w` | **Wiring map** | Display the pinout table in the terminal |
+| `s` | **Board status** | Query Pico firmware version and invert flags |
+| `1` | **Stage 1: Directions** | Automated direction verification |
+| `2` | **Stage 2: Side check** | Verify left side vs right side synchronization |
+| `3` | **Stage 3: PWM Deadband** | Finds `min_pwm` required to overcome static motor friction |
+| `4` | **Stage 4: Top Speed** | Measures `max_wheel_speed` (**drives on floor!**) |
+| `5` | **Stage 5: Track Width** | Calibrates effective turning diameter |
+| `a` | **Run All Stages** | Sequential run of stages 1 through 5 |
 
-Only one process can hold the Pico's port at a time (see Safety above).
+Non-interactive stage execution:
+```bash
+ros2 run athena_drive calibrate --ros-args -p stages:=3,4
+```
 
-For full navigation use `ros2 launch athena_gps_nav bringup.launch.py`, which
-includes `drive.launch.py`: do not also run it yourself. A shell that skipped
-`~/.bashrc` (`ssh host 'command'`, cron) also needs `ROS_DOMAIN_ID=42` and both
-`setup.bash` files sourced ([why](../athena_remote/README.md#option-b-ros-cli-over-ssh)).
+Calibrated values are saved permanently to `~/.config/athena_drive/params.yaml`.
 
-## Pico to motor driver pin map
+---
 
-![Pico to motor driver wiring](../docs/img/pico_wiring.png)
+## Node & Executable Reference
 
-GPIO number with the physical Pico header pin in brackets. Pin 1 is top-left
-with USB at the top; pins 1-20 run down the left edge, 21-40 up the right.
+| Node | Purpose | Port Required |
+|---|---|---|
+| `motor_bridge` | Main runtime bridge: translates `/cmd_vel` to Pico serial commands | Yes |
+| `calibrate` | Interactive calibration wizard and parameter generator | Yes |
+| `wiring_check` | Scripted diagnostic motor pulses for hardware debugging | Yes |
+| `calibrate_speed` | Standalone benchmark tool for `min_pwm` and `max_wheel_speed` | Yes |
+| `teleop` | Terminal keyboard teleop with auto-stop on key release | No |
 
-| Motor | Driver channel | PWM | DIR |
-|---|---|---|---|
-| 1 front-left | FRONT M1 | GP8 (pin 11) | GP9 (pin 12) |
-| 2 mid-left | MID M1 | GP18 (pin 24) | GP19 (pin 25) |
-| 3 rear-left | REAR M1 | GP10 (pin 14) | GP11 (pin 15) |
-| 4 front-right | FRONT M2 | GP6 (pin 9) | GP7 (pin 10) |
-| 5 mid-right | MID M2 | GP20 (pin 26) | GP21 (pin 27) |
-| 6 rear-right | REAR M2 | GP12 (pin 16) | GP13 (pin 17) |
+---
 
-- Left forward = DIR **LOW**, right forward = DIR **HIGH**.
-- Each driver's signal GND must also go to a Pico GND pin (3, 8, 13, 18, 23, 28).
-  This is not in the firmware.
-- **Source of truth:** this table mirrors the `#define`s at the top of
-  `firmware/athena_drive_fw/athena_drive_fw.ino` and the `WIRING` table in
-  `athena_drive/calibrate.py`. If a wire moves to another GPIO, change **both**,
-  reflash, and re-run `python3 ../docs/img/pico_wiring.py` to redraw the picture
-  (it refuses to draw if the two files disagree).
-- Board and channel names (FRONT/MID/REAR, M1/M2) are the firmware's
-  `FRONT_M1` / `MID_M2` ... labels, not verified against the physical driver boards.
-- `calibrate` menu `w` prints this map from the same table.
+## Key Parameters (`motor_bridge`)
 
-## Calibration
+Parameters loaded from `~/.config/athena_drive/params.yaml` or passed via launch arguments:
 
-`ros2 run athena_drive calibrate` opens a menu (stop the stack first):
+| Parameter | Default | Meaning |
+|---|---|---|
+| `track_width` | `0.85` | Distance in meters between left and right wheel track centers |
+| `max_wheel_speed` | `0.70` | Maximum linear wheel speed in m/s at 100% PWM |
+| `min_pwm` | `20` | Minimum PWM value to overcome static friction deadband |
+| `max_pwm` | `255` | Upper PWM ceiling (lower to 120-150 for conservative testing) |
+| `max_accel` | `0.5` | Maximum linear acceleration (m/s²) |
+| `max_jerk` | `1.0` | Slew rate limit on acceleration changes (m/s³) |
+| `port` | `""` | USB serial port (empty string auto-detects Pico by USB ID) |
 
-| Key | Does |
-|---|---|
-| `m` | **Manual motor test**: pick one or more motors, a direction, confirm; only that runs |
-| `d` | direction check for the motors you pick |
-| `w` | wiring map (the pin map above) |
-| `s` | board status and invert flags, from the Pico |
-| `1`-`5` | one stage: 1 directions, 2 side check, 3 PWM deadband, 4 top speed (**drives on the floor**), 5 track width |
-| `a` | stages 1-5 in order |
+---
 
-Skip the menu with `-p stages:=m`, `-p stages:=3,4` or `-p stages:=all`.
-Several motors run together through the firmware's `G <mask> <pwm>` command
-(bit 0 = motor 1). `G` is compiled in the source but **not yet flashed to the
-Pico**; until it is, `calibrate` runs the chosen motors one after another and
-says so before you confirm.
+## Documentation Links
 
-Stage results, motor verdicts, what is saved where and manual tools:
-[docs/CALIBRATION.md](docs/CALIBRATION.md).
-
-**State today.** `~/.config/athena_drive/params.yaml` holds `min_pwm: 20` and
-`track_width: 0.85` (both measured). `max_wheel_speed` and `max_pwm` are absent,
-so the bridge runs on its estimates of 0.7 m/s and 255, and `motor_bridge` logs
-an `UNCALIBRATED` warning naming them at startup. Run stage 4 on the floor
-(`-p stages:=4`) before trusting a commanded distance.
-
-## Nodes
-
-Five executables, and there are no others:
-
-| Node | Purpose |
-|---|---|
-| `motor_bridge` | `/cmd_vel` -> `V <l> <r>`; the one you run for navigation |
-| `calibrate` | the menu and guided stages: directions, deadband, top speed, track width |
-| `wiring_check` | drives one motor, a side, or a spin, to verify direction |
-| `calibrate_speed` | measures `min_pwm` and `max_wheel_speed`, prints only |
-| `teleop` | keyboard driving with a dead-man release |
-
-All but `teleop` open the Pico's serial port. Launch file `drive.launch.py`
-starts `motor_bridge`; `dry_run:=true` logs commands instead of sending them.
-
-## Key parameters (motor_bridge)
-
-Saved calibration is used unless a value is passed; passing one overrides it for
-that run only (`ros2 launch athena_drive drive.launch.py max_pwm:=120`).
-
-| Parameter | Estimate | Saved here today | Meaning |
-|---|---|---|---|
-| `track_width` | 0.40 | 0.85 | m between left and right wheel centres |
-| `max_wheel_speed` | 0.7 | none | m/s at full PWM; scales every velocity Nav2 commands |
-| `min_pwm` | 40 | 20 | static-friction deadband |
-| `max_pwm` | 255 | none | cap; lower it for cautious testing |
-| `max_accel` / `max_jerk` | 0.5 / 1.0 | | m/s^2, m/s^3: how hard and how smoothly it pulls away |
-| `port` | `''` | | empty = auto-detect the Pico by USB id; never hard-code `/dev/ttyACM<n>` |
-
-Full table, the firmware handshake, kinematics and the velocity profile:
-[docs/MOTOR_BRIDGE.md](docs/MOTOR_BRIDGE.md).
-
-## Docs
-
-| Document | Covers |
-|---|---|
-| [docs/CALIBRATION.md](docs/CALIBRATION.md) | the `calibrate` menu and stages, where settings live, the single-purpose tools |
-| [docs/FIRMWARE.md](docs/FIRMWARE.md) | serial commands, built-in safety behaviour, flashing the Pico |
-| [docs/MOTOR_BRIDGE.md](docs/MOTOR_BRIDGE.md) | all parameters, serial port rules, kinematics, velocity profile, limitations |
-| [docs/TESTING.md](docs/TESTING.md) | orientation checks, teleop -> Nav2 -> obstacles bring-up, first-drive order |
-| [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) | where this package sits in the whole system |
-
-## Contributors
-
-- **Jashan**: firmware, motor bridge, velocity profile, calibration wizard
+- [Calibration Guide](docs/CALIBRATION.md)
+- [Pico Firmware Documentation](docs/FIRMWARE.md)
+- [Motor Bridge Kinematics & Protocols](docs/MOTOR_BRIDGE.md)
+- [Drive Testing Procedures](docs/TESTING.md)
+- [System Architecture](../docs/ARCHITECTURE.md)

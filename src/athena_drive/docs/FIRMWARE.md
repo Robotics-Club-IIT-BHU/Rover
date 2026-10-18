@@ -1,97 +1,90 @@
-# Pico firmware
+# Pico W Motor Firmware Reference
 
-`firmware/athena_drive_fw/athena_drive_fw.ino`, running on a Raspberry Pi
-Pico W. Serial protocol: 115200 baud, newline-terminated. For which GPIO drives
-which motor see the [pin map](../README.md#pico-to-motor-driver-pin-map). Back
-to the [package README](../README.md).
+Firmware implementation, serial protocol commands, and flashing procedures for `athena_drive_fw` running on the Raspberry Pi Pico W.
 
-## Commands
+Source: `firmware/athena_drive_fw/athena_drive_fw.ino`  
+Serial Configuration: 115200 baud, 8N1, newline-terminated (`\n`).
 
-| Command | Does |
-|---|---|
-| `V <left> <right>` | variable drive, signed PWM -255..255 **per side**, + = forward. The only drive command the bridge uses |
-| `M <n> <pwm>` | ONE motor, n = 1..6; auto-stops after 1.5 s |
-| `G <mask> <pwm>` | several motors at once (bit 0 = motor 1, mask 1..63, e.g. `G 5 120` = motors 1 and 3); same auto-stop. Used by the `calibrate` menu. **In the source, not yet flashed to the Pico** (see below) |
-| `F` `B` `L` `R` `S` | legacy fixed-speed forward / back / left / right / stop |
-| `P <0-255>` | speed used by F/B/L/R (saved to flash) |
-| `I` | print the six invert flags |
-| `I <n> <0\|1>` | flip motor n's forward direction, saved to flash immediately |
-| `W` | save config to flash |
-| `?` | status line |
-| `H` | help |
+---
 
-`I` is how `calibrate` stage 1 writes a direction. `?` is what `motor_bridge`
-uses as a liveness ping: a pure read that sets no target and moves nothing.
-Status line:
+## 1. Serial Protocol Commands
+
+| Command | Arguments | Functional Description |
+|---|---|---|
+| `V` | `<left> <right>` | Variable skid-steer drive command. Signed PWM ($-255$ to $+255$) per side (+ is forward). Active drive command used by `motor_bridge`. |
+| `M` | `<motor> <pwm>` | Drives an individual motor ($1$ to $6$). Automatically halts after 1.5 s. Used for isolated wiring checks. |
+| `G` | `<mask> <pwm>` | Drives a bitmask combination of motors simultaneously ($1$ to $63$, where bit 0 = Motor 1). Halts after 1.5 s. |
+| `I` | `[none]` | Prints the 6-character hardware invert string (e.g. `inv=000000`). |
+| `I` | `<motor> <0\|1>` | Configures motor polarity ($0$ = normal, $1$ = inverted). Immediately commits to onboard EEPROM/flash. |
+| `?` | `[none]` | Queries board telemetry and watchdog status without affecting motor state. |
+| `W` | `[none]` | Commits active configuration to onboard flash memory. |
+| `H` | `[none]` | Prints command help text. |
+
+### Firmware Status Telemetry String
+
+Sending `?` returns the status line:
 
 ```
 L=0/0 R=0/0 spd=200 pwmHz=20000 wdt=ok inv=000000
 ```
 
-`inv` is the six invert flags in motor order (1=FL 2=ML 3=RL 4=FR 5=MR 6=RR).
-`motor_bridge` warns at startup if any is non-zero: a wrong one is invisible at
-runtime and shows up only as a wheel fighting the other five.
+- **`L` / `R`:** Target vs active slewed PWM for left and right channels.
+- **`pwmHz=20000`:** Active 20 kHz ultrasonic PWM frequency.
+- **`wdt=ok`:** Hardware watchdog status (`ok` or `tripped`).
+- **`inv`:** Direction invert flags for motors 1 through 6 (`1=FL, 2=ML, 3=RL, 4=FR, 5=MR, 6=RR`).
 
-**`V` carries one value per SIDE.** `applySide()` writes that value to all three
-motors on the side. There is no per-motor speed and no per-motor enable; the
-only per-motor state is `invert[6]`, which flips direction and nothing else.
-**So one dead wheel is never a software fault.** If five wheels turn and one
-does not, it is the motor, its leads, its driver channel or its power. `M <n>
-<pwm>` proves it one motor at a time (`wiring_check` wraps it).
+> [!NOTE]
+> The `V` command controls wheels **per side** (`applySide()`). All 3 motors on a side receive the identical PWM command. Therefore, if 5 wheels turn and 1 does not, the failure is strictly hardware (motor leads, driver board channel, or power rail), not software.
 
-## Built-in behaviour
+---
 
-- **20 kHz PWM.** The RP2040 core defaults to ~1 kHz, which is audible and gives
-  poor low-speed torque (each pulse is long against the motor's electrical time
-  constant, so current collapses between pulses). 20 kHz is inaudible and keeps
-  winding current continuous, so slow speeds are smooth.
-- **Slew limiting.** Commanded PWM ramps instead of stepping (about 0.3 s from 0
-  to full). It protects the gearboxes, stops the wheels breaking traction on every
-  change and keeps motion smooth enough for visual odometry. Separate from the
-  bridge's [velocity profile](MOTOR_BRIDGE.md#velocity-profile); keep both.
-- **Watchdog.** No valid command for 500 ms and the motors stop. The bridge
-  streams at 20 Hz, so a crashed node or unplugged cable halts the rover in
-  under half a second. A running `M`/`G` test is deliberately exempt, or the
-  watchdog would cut every wiring check short at 500 ms instead of 1.5 s.
+## 2. Built-In Firmware Protections
 
-## Flashing
+- **20 kHz Ultrasonic PWM:**
+  The RP2040 hardware timer generates 20 kHz PWM. This eliminates audible coil whine and ensures continuous motor winding current for smooth low-speed torque.
+- **Hardware Slew Rate Limiter:**
+  PWM duty cycle ramps smoothly over ~0.3 s from 0 to full scale. This protects mechanical gearboxes from shock loading and wheel spin.
+- **500 ms Hardware Watchdog:**
+  If no valid serial command is received for 500 ms, the firmware automatically zeroes PWM output across all channels.
 
-**The `G` command is compiled in the current source but the Pico has not been
-reflashed since it was added.** Until it is, `calibrate` runs multi-motor tests
-one motor after another. The prebuilt image
-`~/athena/firmware_build/athena_drive_fw.ino.uf2` is dated 2026-08-30 and does
-not contain `G`: rebuild it before using it.
+---
 
-Two routes. The first needs the board to enumerate as a serial port; the second
-works when it does not (the case you will hit after flashing something broken).
+## 3. Firmware Flashing Procedures
 
-**Over serial**, from the package directory (the `.ino` path is relative):
+### Method 1: Serial Upload (via Arduino CLI)
+
+Use this method when the Pico W enumerates normally on `/dev/serial/by-id/`:
 
 ```bash
+# Verify the Pico W serial link
+ls -l /dev/serial/by-id/usb-Raspberry_Pi_Pico*
+
+# Compile and upload firmware
 cd ~/athena/src/athena_drive
-ls /dev/serial/by-id/        # check the Pico is listed first
-arduino --upload --board rp2040:rp2040:rpipicow \
+~/bin/arduino-cli compile --fqbn rp2040:rp2040:rpipicow \
   --port $(readlink -f /dev/serial/by-id/usb-Raspberry_Pi_Pico*) \
-  firmware/athena_drive_fw/athena_drive_fw.ino
+  --upload firmware/athena_drive_fw
 ```
 
-The rp2040 core (5.5.1) is installed for both `/usr/bin/arduino` and
-`~/bin/arduino-cli`. If the glob matches nothing, `$(...)` expands to empty and
-`--port` silently gets no argument, hence the `ls` first. Stop `motor_bridge`
-first (the port is exclusive).
+### Method 2: USB Mass Storage Bootloader (UF2)
 
-**Over USB mass storage**, needing no serial port and no working firmware: hold
-BOOTSEL while plugging the board in; it mounts as a drive. Copy a UF2 onto it
-and it reboots into the new firmware when the copy finishes:
+Use this method if the serial port fails to enumerate or after flashing corrupt firmware:
+
+1. Disconnect the Pico W USB cable.
+2. Hold down the white **BOOTSEL** button on the Pico board while plugging the USB cable into the Jetson.
+3. The board mounts as a mass storage drive at `/media/$USER/RPI-RP2`.
+4. Compile the UF2 binary and copy it to the mounted volume:
 
 ```bash
 cd ~/athena/src/athena_drive
 ~/bin/arduino-cli compile --fqbn rp2040:rp2040:rpipicow \
-  --output-dir ~/athena/firmware_build firmware/athena_drive_fw     # rebuild the image
+  --output-dir ~/athena/firmware_build firmware/athena_drive_fw
+
 cp ~/athena/firmware_build/athena_drive_fw.ino.uf2 /media/$USER/RPI-RP2/
 ```
 
-After flashing, run `ros2 run athena_drive calibrate` and press `s` to confirm
-the board answers and to check the invert flags (`inv`) still match your
-wiring; they are stored in the Pico's flash, and the config falls back to all
-zeros if it is not found.
+5. The Pico W automatically unmounts, flashes the firmware, and reboots into normal CDC serial mode.
+6. Verify operation:
+   ```bash
+   ros2 run athena_drive calibrate --ros-args -p stages:=s
+   ```

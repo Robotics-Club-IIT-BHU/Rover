@@ -1,160 +1,127 @@
 # athena_gps_nav
 
-Outdoor navigation for the Athena rover: a depth camera to see obstacles, GPS
-and an IMU to know where it is, and Nav2 to drive. ROS 2 Humble, Nav2 1.1.20,
-robot_localization 3.5.4, rtabmap 0.23.7, Jetson.
+Autonomous navigation stack for the Athena rover: integrates Intel RealSense D435i depth sensing, CubePilot Cube Orange flight controller (ArduPilot + DroneCAN RTK GNSS with MAVLink 2 RTCM injection), dual-EKF state estimation (`robot_localization`), visual odometry (`rtabmap`), and Nav2 path planning.
 
-This page is how to run it. How it works: [ARCHITECTURE.md](ARCHITECTURE.md).
+---
 
-| I want to | Read |
-|---|---|
-| Check the stack is healthy, test with RViz or by hand | [docs/TESTING.md](docs/TESTING.md) |
-| Change a costmap, speed, GPS or filter parameter | [docs/TUNING.md](docs/TUNING.md) |
-| Fix a sensor, GPS or camera problem; see known limitations | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
-| Understand the design and why it is the way it is | [ARCHITECTURE.md](ARCHITECTURE.md), [system overview](../docs/ARCHITECTURE.md) |
-
-## Set up (once, per machine)
+## Quick Start
 
 ```bash
-sudo apt install \
-  ros-humble-nav2-bringup ros-humble-nav2-simple-commander \
-  ros-humble-robot-localization ros-humble-rtabmap-odom \
-  ros-humble-realsense2-camera ros-humble-imu-filter-madgwick \
-  ros-humble-foxglove-bridge ros-humble-robot-state-publisher \
-  ros-humble-xacro ros-humble-tf2-ros ros-humble-tf-transformations \
-  ros-humble-sensor-msgs-py
-pip3 install pymavlink
+# 1. Launch complete navigation stack (allow ~40 seconds to settle)
+ros2 launch athena_gps_nav bringup.launch.py
 
-cd ~/athena                                  # the workspace root, never src/ or a package
-colcon build --symlink-install
-source install/setup.bash
-ros2 run athena_drive calibrate              # motors, once; wheels off the ground
+# 2. In another terminal, verify node and topic health
+ros2 run athena_gps_nav stack_check
+
+# 3. Check RTK fix and satellite telemetry (with optional RTCM injection)
+ros2 run athena_gps_nav gps_diagnose --rtcm-host $BASE_STATION_IP --rtcm-port 2101
 ```
 
-- `package.xml` does not declare `pymavlink` or `rtabmap_odom`; neither breaks the
-  build, both surface as an `ImportError` or missing executable at launch.
-- Build from `~/athena` with `--symlink-install` (traps explained in
-  [CONTRIBUTING.md](../CONTRIBUTING.md)): `colcon` run from inside a package builds
-  nothing and exits 0, and without the flag Python edits are ignored. With it,
-  *editing* `config/`, `urdf/`, `launch/` or `behavior_trees/` takes effect on the
-  next relaunch; *adding* a file needs a rebuild.
-- Calibration is read by the motor bridge; until it exists the rover drives but not
-  at the speeds Nav2 thinks it commanded ([athena_drive](../athena_drive/README.md)).
-- **Do not** `source ~/rtab/install/setup.bash`: that source build is ABI-broken
-  and crashes instantly. rtabmap comes from apt.
-- `~/.bashrc` on this Jetson also sources `~/ros2_ws`, an unrelated rover project
-  with its own from-source `realsense2_camera`. `sensors.launch.py` therefore
-  starts the RealSense driver by absolute path to the apt binary; that is why its
-  `executable=` looks odd.
+---
 
-## Run
+## Operating Modes & Launch Arguments
+
+`bringup.launch.py` accepts four arguments:
 
 ```bash
-ros2 launch athena_gps_nav bringup.launch.py          # everything; give it ~40 s
-ros2 run athena_gps_nav stack_check                   # PASS/FAIL per stage, then exits
+# Indoor / No-GPS Mode (Disables ekf_global & navsat_transform; maps map -> odom as identity)
+ros2 launch athena_gps_nav bringup.launch.py local_only:=true
+
+# Desk / Dry-Run Mode (Motors receive zero command; safe on a table)
+ros2 launch athena_gps_nav bringup.launch.py dry_run:=true
+
+# Camera Disabled (Runs without RealSense depth cloud or VIO)
+ros2 launch athena_gps_nav bringup.launch.py use_camera:=false
+
+# Foxglove Disabled (Skips WebSocket bridge to conserve Jetson CPU)
+ros2 launch athena_gps_nav bringup.launch.py foxglove:=false
 ```
 
-One command starts sensors, visual odometry, both filters, Nav2, the motor bridge
-and the Foxglove panel, staggered so each layer has what it needs (order and
-reasons: [system overview](../docs/ARCHITECTURE.md#launch-order)). These four are
-the only arguments (`ros2 launch athena_gps_nav bringup.launch.py --show-args` is
-authoritative; others are silently ignored):
+> [!IMPORTANT]
+> **Indoors or without GPS fix, always set `local_only:=true`.**
+> Without satellites, the global EKF dead-reckons identical inputs to the local EKF, causing synthetic filter divergence (`map -> odom` drift). In `local_only` mode, a static transform `map -> odom` is published and Nav2 navigates reliably against visual odometry.
 
-| Argument | Effect |
-|---|---|
-| `dry_run:=true` | motor commands logged, not sent; safe on a desk |
-| `use_camera:=false` | no RealSense: no obstacle avoidance **and** no visual odometry, so the local EKF has no translation source and `odom` will not track motion |
-| `foxglove:=false` | no control panel, lower CPU |
-| `local_only:=true` | indoor / no-GPS mode (below) |
+---
 
-**Indoors, use `local_only:=true`.** It drops `ekf_global` and `navsat_transform`
-and publishes a static identity `map -> odom`; Nav2's config is untouched
-(`global_frame` stays `map`) and switching back is dropping the flag. With no fix
-`ekf_global` would dead-reckon the same inputs as `ekf_local`, and the two
-diverging *is* the indoor `map -> odom` drift
-([why](../docs/ARCHITECTURE.md#key-design-decisions)). `pixhawk_bridge` still
-publishes `/gps/fix`. `stack_check` then reports `EKF global (map)` and `navsat
-gps->map` as FAIL: expected.
+## Running Individual Subsystems (Debugging)
 
-Launch one layer at a time to debug it:
+For targeted testing or diagnostics, launch individual layers independently:
 
-| Launch file | Arguments | Starts |
+| Layer | Command | Function |
 |---|---|---|
-| `sensors.launch.py` | `use_camera` | robot description, camera driver, camera IMU filter, Pixhawk bridge, cloud downsampler |
-| `vio.launch.py` | none | rtabmap visual odometry + `vio_gate` |
-| `localization.launch.py` | `use_sim_time`, `local_only` | two EKFs + navsat_transform, or one EKF + static `map -> odom` |
-| `navigation.launch.py` | `use_sim_time` | Nav2 |
-| `bringup.launch.py` | `dry_run`, `use_camera`, `foxglove`, `local_only` | all of the above + motor bridge + Foxglove |
-| `bench_test.launch.py` | none | fake sensors + the real pipeline; no hardware at all |
+| **Sensors & RTK** | `ros2 launch athena_gps_nav sensors.launch.py` | RealSense camera, camera IMU filter, Cube Orange MAVLink bridge (with RTCM injection), downsampler |
+| **Visual Odometry** | `ros2 launch athena_gps_nav vio.launch.py` | rtabmap RGB-D odometry + `vio_gate` |
+| **Localization** | `ros2 launch athena_gps_nav localization.launch.py` | Dual EKFs and `navsat_transform` (supports `local_only:=true`) |
+| **Navigation** | `ros2 launch athena_gps_nav navigation.launch.py` | Nav2 planner, controller, costmaps, smoother |
+| **Motor Drive** | `ros2 launch athena_drive drive.launch.py` | Serial bridge for Raspberry Pi Pico |
+| **Control Panel** | `ros2 launch athena_remote foxglove.launch.py` | Foxglove WebSocket bridge and operator nodes |
+| **Bench Simulation** | `ros2 launch athena_gps_nav bench_test.launch.py` | Fake sensors feeding the real Nav2 pipeline without hardware |
 
-## Send it somewhere
+---
 
-- **Click:** RViz **2D Goal Pose** 2-3 m ahead in free space, or the Foxglove 3D
-  panel. A path appears on `/plan` and `/cmd_vel` starts (`ros2 topic hz /cmd_vel`).
-  With `dry_run:=true` nothing moves; `/cmd_vel` existing proves planning and control.
-- **By GPS (needs a fix):** type a coordinate in the Foxglove *Go to* tab
-  ([athena_remote](../athena_remote/docs/FOXGLOVE_PANEL.md#driving-it)), or record
-  and replay a route (ENTER saves a waypoint; file format in
-  `config/waypoints_example.yaml`):
+## Sending Navigation Goals
 
+### 1. Clicked Goal (Indoor & Outdoor)
+- Open Foxglove Studio or RViz2.
+- Use the **Pose Publish Tool** (`/athena/goal_click` in Foxglove or `2D Goal Pose` in RViz).
+- Click target point and drag arrow to set target orientation.
+- The planner immediately calculates `/plan` and begins moving.
+
+### 2. GPS Coordinate (Requires Satellite Fix)
+- Send latitude, longitude, and optional compass heading via string topic:
+  ```bash
+  ros2 topic pub --once /athena/goal_text std_msgs/String "{data: '25.2629548, 82.9838284'}"
+  ```
+- Or input via the Foxglove *Go to* tab.
+
+### 3. Record & Replay GPS Waypoint Routes
 ```bash
+# Record waypoints while driving manually (press ENTER at each waypoint):
 ros2 run athena_gps_nav gps_waypoint_logger --ros-args -p output_file:=/home/robo/route.yaml
+
+# Replay and drive the recorded route autonomously:
 ros2 run athena_gps_nav gps_waypoint_follower --ros-args -p waypoints_file:=/home/robo/route.yaml
-ros2 run athena_gps_nav gps_waypoint_follower --ros-args -p goal_lat:=25.26295 -p goal_lon:=82.98383   # one point
 ```
 
-  Humble's Nav2 has no GPS waypoint action, so the follower converts each lat/lon
-  through robot_localization's `/fromLL` and uses the ordinary waypoint follower.
-  Absolute yaw is not fused, so map-frame bearings are dead-reckoned: read
-  [TUNING.md](docs/TUNING.md#heading-the-compass-is-not-used) before trusting a
-  recorded route.
-- **A failed goal** (Nav2 here runs its own tree with no Spin or BackUp): clear
-  costmaps, wait 5 s, up to 6 rounds, then fail cleanly and hand control back to
-  you ([why](docs/TUNING.md#recovery-behaviour)).
+---
 
-## Nodes
+## Node & Tool Reference
 
-The complete list of `ros2 run athena_gps_nav <exe>` targets:
+Executable targets available via `ros2 run athena_gps_nav <node>`:
 
-| Node | Job |
+| Node | Description |
 |---|---|
-| `pixhawk_bridge` | Pixhawk over MAVLink -> `/imu/data` and `/gps/fix`; aviation axes to ROS axes; HDOP to a real covariance |
-| `vio_gate` | between visual odometry and the filters: drops motion the rover cannot have made, forces zero when parked |
-| `pointcloud_downsampler` | thins the depth cloud so the costmaps are cheap to update |
-| `stack_check` | one-shot PASS/FAIL health check |
-| `localization_monitor` | records N seconds and writes an accuracy report |
-| `costmap_drift_check` | measures whether the costmap slides when it should not |
-| `gps_diagnose` | talks to the Pixhawk directly to explain why GPS has no fix. `argparse`, not a ROS node: `--seconds`, not `-p seconds:=` |
-| `tf_check` | checks transforms are correctly *oriented*, not just present |
-| `gps_waypoint_logger` / `gps_waypoint_follower` | record a route by driving it, then drive it autonomously |
-| `fake_gps_imu` | synthetic GPS/IMU/VIO for `bench_test.launch.py`; not used on hardware |
+| `pixhawk_bridge` | Communicates with Cube Orange over MAVLink 2 at 921600 baud -> `/imu/data`, `/gps/fix`. Injects RTCM3 corrections over TCP (`$RTCM_HOST`:2101) into Cube Orange via `GPS_RTCM_DATA`, and publishes centimeter-accurate covariance from `h_acc`. |
+| `vio_gate` | Filters visual odometry, rejecting impossible velocity steps and clamping drift when stationary |
+| `pointcloud_downsampler` | Voxel-decimates camera point cloud for low-CPU costmap marking |
+| `stack_check` | Automated system-wide health diagnostic tool |
+| `gps_diagnose` | Direct serial inspection of Cube Orange MAVLink packets with optional RTCM injection (`--rtcm-host`, `--rtcm-port`) to diagnose RTK Float/Fixed state, horizontal accuracy, and satellites. |
+| `costmap_drift_check` | Checks whether stationary obstacles migrate across costmap frames |
+| `tf_check` | Validates orientation and consistency across the TF tree |
+| `gps_waypoint_logger` | Logs visited GPS coordinates to YAML |
+| `gps_waypoint_follower` | Sequences autonomous navigation goals across saved GPS coordinates |
 
-Not in this package: motor control (`athena_drive`) and anything an operator
-clicks (`athena_remote`).
+---
 
-## Key parameters
+## Key Parameters & Configuration
 
-Tuning rationale and the rest: [docs/TUNING.md](docs/TUNING.md).
+| Configuration File | Parameter | Value | Description |
+|---|---|---|---|
+| `nav2_params.yaml` | `desired_linear_vel` | `0.35` m/s | Nominal cruising speed |
+| | `lookahead_dist` | `1.0` m | Fixed Pure Pursuit lookahead distance |
+| | `xy_goal_tolerance` | `0.5` m | Distance threshold to declare goal reached |
+| | `yaw_goal_tolerance` | `3.14` rad | Heading tolerance (allows ending at any orientation) |
+| | `local_costmap` | 8x8 m @ 0.05m | Rolling obstacle avoidance grid |
+| | `global_costmap` | 100x100 m @ 0.1m | Rolling long-range route planning grid |
+| `dual_ekf_navsat.yaml` | `delay` | `45.0` s | Datum initialization delay |
+| | `imu0_config` | Yaw disabled | Yaw is dead-reckoned from gyro rate to prevent compass magnetic interference |
 
-| Where | Parameter | Value |
-|---|---|---|
-| `nav2_params.yaml` | `desired_linear_vel` | 0.35 m/s |
-| | `lookahead_dist` (fixed; `use_velocity_scaled_lookahead_dist: false`) | 1.0 m |
-| | `rotate_to_heading_angular_vel` | 0.4 rad/s |
-| | `xy_goal_tolerance` / `yaw_goal_tolerance` | 0.5 m / 3.14 rad |
-| | local / global costmap | 8 x 8 m @ 0.05 m (`odom`) / 100 x 100 m @ 0.1 m (`map`) |
-| | `inflation_radius` local / global | 0.9 / 1.2 m |
-| | `obstacle_max_range` / `min_obstacle_height` / `expected_update_rate` | 3.0 m / 0.10 m / 2.0 s |
-| | footprint | 1.3 x 1.0 m rectangle |
-| `dual_ekf_navsat.yaml` | `navsat_transform: delay` | 45 s (pin a datum for repeatable runs) |
-| | absolute yaw (`imu0_config` index 5) | false in both EKFs; gyro rate only |
-| `pixhawk_bridge` | `baud`, `imu_rate_hz`, `gps_uere`, `gps_sigma_floor` | 921600, 50, 1.74, 3.06 |
+---
 
-Other files: `behavior_trees/athena_nav_to_pose.xml` (the tree), `urdf/athena.urdf.xacro`
-(sensor positions; the camera offsets are load-bearing, re-measure with
-`mount_check.py` after any remount, see [TESTING.md](docs/TESTING.md#camera-mount)),
-`config/athena_bench.rviz`, `config/waypoints_example.yaml`.
+## Documentation Links
 
-## Contributors
-
-- **Jashan**: the whole stack: sensor bridges, dual-EKF tuning, VIO gating, costmap work
+- [Detailed Navigation Architecture](ARCHITECTURE.md)
+- [Sensor & Stack Testing Guide](docs/TESTING.md)
+- [Parameter Tuning & Behaviour](docs/TUNING.md)
+- [Troubleshooting & Known Issues](docs/TROUBLESHOOTING.md)
+- [Overall System Architecture](../docs/ARCHITECTURE.md)

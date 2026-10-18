@@ -24,7 +24,7 @@ ros2 node list | sort | uniq -c | awk '$1>1'
 Any output at all means duplicates. Nothing printed is what you want.
 
 Run that on the Jetson, or over ssh with the domain set explicitly —
-`ssh robo@172.20.119.87 'export ROS_DOMAIN_ID=42; source ~/athena/install/setup.bash && ros2 node list'`.
+`ssh robo@$JETSON_IP 'export ROS_DOMAIN_ID=42; source ~/athena/install/setup.bash && ros2 node list'`.
 A non-interactive shell returns early from `~/.bashrc` and lands on domain 0,
 where the list is empty and every duplicate is invisible.
 

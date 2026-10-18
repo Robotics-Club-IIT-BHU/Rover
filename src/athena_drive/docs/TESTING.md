@@ -1,149 +1,121 @@
-# Testing the drive end to end
+# End-to-End Drive & Motor Verification
 
-Checks, in order, from bare wheels to Nav2 driving around an obstacle. Prop
-the rover up so the wheels spin free for every step except where noted, and
-stop the stack before using `wiring_check` or `calibrate` (the Pico's serial
-port is exclusive). Back to the [package README](../README.md).
+Step-by-step verification procedures for the Athena drive system, from single-motor rotation to autonomous Nav2 path execution.
 
-Everything downstream assumes ROS conventions (REP-103) in the robot's frame:
-**+x forward, +y left, +z up, and +yaw is counter-clockwise seen from above.**
+Coordinate conventions adhere strictly to **REP-103**:
+- **+x:** Forward
+- **+y:** Left
+- **+z:** Up
+- **+yaw:** Counter-clockwise viewed from above
 
-## 1. Each motor turns the right way
+> [!IMPORTANT]
+> Lift the rover off the ground so all six wheels spin freely before executing any motor rotation tests. Stop the ROS navigation stack to release the serial port lock.
+
+---
+
+## 1. Single Motor & Polarity Verification
+
+Test all six motor channels sequentially:
 
 ```bash
-ros2 run athena_drive wiring_check          # wheels off the ground
+ros2 run athena_drive wiring_check
 ```
 
-It drives motors 1 to 6 forward one at a time, naming each. For every one: **does
-the top of that wheel roll toward the front of the rover?**
+The script spins Motors 1 through 6 forward in order.
+**Verify:** The top of each wheel rolls toward the front bumper of the rover.
 
-- Wrong direction on one wheel: flip that motor's invert flag (`I <n> 1`, or let
-  `calibrate` do it), **or** swap its two power leads at the driver. One, not both.
-- **No movement on one wheel: hardware.** The bridge sends one PWM per side and
-  the firmware writes it to all three motors on that side, so no software path
-  can single one wheel out. Check power, leads, driver channel (the
-  [pin map](../README.md#pico-to-motor-driver-pin-map) says which wires).
-- Wrong on all three of a side: set `invert_left` or `invert_right` on
-  `motor_bridge`. Fix it in the wiring **or** in software, never both.
+| Observed Wheel Motion | Root Cause | Resolution |
+|---|---|---|
+| Single wheel spins backward | Inverted motor channel polarity | Invert flag in firmware via `ros2 run athena_drive calibrate` (Stage 1), or swap the motor leads at the driver board. |
+| Single wheel does not spin | Hardware or electrical failure | Check 12V motor supply rail, screw terminals, and driver board fuse. The software cannot address individual dead wheels. |
+| All three wheels on a side spin backward | Side polarity reversed | Set `invert_left: true` or `invert_right: true` in `drive.launch.py`. |
 
-Options: `-p motor:=3` (one motor), `-p pwm:=150` (stiff gearbox), `-p pause:=5.0`.
-`-p mode:=sides` drives the whole left side, then the right, with `V`; all three
-wheels on the active side should turn together. If **one** wheel of a side stays
-still while the other two turn, that is never software.
-
-## 2. The sides are not swapped
+### Advanced Wiring Checks
 
 ```bash
+# Drive left side wheels, then right side wheels
+ros2 run athena_drive wiring_check --ros-args -p mode:=sides
+
+# Spin left test (verifies side mapping)
 ros2 run athena_drive wiring_check --ros-args -p mode:=spin
 ```
+*Expected Spin Left Result:* The rover spins counter-clockwise viewed from above. If it spins clockwise, the left and right driver channel connections are reversed.
 
-Drives forward, then spins left. **Spin left must rotate counter-clockwise seen
-from above.** If it spins the other way the left and right driver connections
-are exchanged.
+---
 
-## 3. It matches what ROS believes
+## 2. ROS 2 Coordinate & Odometry Agreement
 
-With the nav stack running, drive and watch `/odometry/local`:
+With the full stack running, confirm that motor motion maps accurately into ROS 2 odometry:
 
 ```bash
+# Terminal 1: Monitor local odometry
 ros2 topic echo /odometry/local --field pose.pose.position
-ros2 run tf2_ros tf2_echo odom base_link          # roll/pitch/yaw, live
+
+# Terminal 2: Monitor TF yaw orientation
+ros2 run tf2_ros tf2_echo odom base_link
 ```
 
-- Drive **forward**: `x` increases.
-- Spin **left**: yaw increases. `/imu/data` carries a quaternion, not an angle,
-  so read yaw off TF as above.
+- When commanded **forward**: $x$ position increases.
+- When commanded **spin left**: yaw angle increases.
 
-Whole-system check, which catches what the above missed:
+Run the automated coordinate frame validator:
 
 ```bash
 ros2 run athena_gps_nav tf_check
 ```
 
-It verifies gravity points **+z** in `base_link` (catches an upside-down or
-unconverted IMU; a wrong IMU still reads 9.81, only the *sign* gives it away) and
-that the depth cloud lands at **+x** (catches a camera rotated sideways).
+*Expected results:*
+- Gravity points **+z in `base_link`** (verifies IMU orientation and REP-103 axis conversion).
+- Camera point cloud centroid is located in **+x** (verifies camera looks forward).
 
-In RViz, Fixed Frame `odom`, drive forward a metre: the robot marker moves along
-its own +x and obstacles stay **fixed in the world**. If obstacles slide along
-with the robot, odometry is not tracking the motion.
+---
 
-## 4. Bring-up in three stages
+## 3. Staged Bringup Verification
 
-Each stage proves one thing before the next depends on it.
-
-**Stage 1, teleop only** (no localization involved):
+### Stage 1: Manual Teleoperation (No Localization)
 
 ```bash
 ros2 launch athena_drive drive.launch.py
 ros2 run athena_drive teleop
 ```
 
-Arrows drive, releasing them stops the rover. Verify: forward goes forward and
-left goes left; releasing the keys stops it within ~0.4 s; unplugging the Pico USB
-stops it (the firmware watchdog).
+- Arrow keys drive the rover (Up = Forward, Left = Spin Left).
+- Releasing arrow keys halts motion within ~0.4 s.
+- Unplugging the Pico W USB cable immediately trips the hardware watchdog and cuts motor power.
 
-**Stage 2, Nav2 with GPS.** Stop the stage 1 launch first: bringup includes
-`drive.launch.py`, and a second `motor_bridge` cannot open the port, so it streams
-into nothing while the first one drives.
+### Stage 2: Nav2 with RTK Global Localization
 
 ```bash
+# Terminal 1: Full system bringup
 ros2 launch athena_gps_nav bringup.launch.py
-ros2 run athena_gps_nav stack_check                 # every line PASS
+
+# Terminal 2: Stack health check
+ros2 run athena_gps_nav stack_check
 ```
 
-In RViz (`rviz2 -d ~/athena/src/athena_gps_nav/config/athena_bench.rviz`, Fixed
-Frame `odom`) use **2D Goal Pose** a few metres ahead. Watch for a path on
-`/plan`, `/cmd_vel` publishing and the rover following. Before trusting a goal,
-drive forward a metre by hand and confirm `x` increases in `/odometry/local`;
-if the rover drives forward while odometry says backwards, a goal drives it away
-from the target.
+In RViz (Fixed Frame `odom` or `map`):
+1. Send a **2D Goal Pose** a few meters ahead.
+2. Confirm the path is generated on `/plan`.
+3. Confirm velocity commands publish on `/cmd_vel_nav` and the rover tracks the trajectory smoothly.
 
-Watch `/cmd_vel_nav`, not `/cmd_vel`, to see what the *controller* asked for.
-`/cmd_vel` has six publishers (`teleop_mux`, the velocity smoother and several
-`behavior_server` behaviours), so Foxglove teleop contaminates a reading taken
-there. Only `controller_server` publishes `/cmd_vel_nav`;
-`ros2 topic info /cmd_vel -v` lists the rest.
+### Stage 3: Dynamic Obstacle Avoidance
 
-Outdoors, with sky, record and follow a GPS route:
+1. Place a test obstacle (e.g. cardboard box) 1.5 m ahead in the planned trajectory.
+2. Nav2 re-plans a path around the obstacle.
+3. The local costmap visualizes dark lethal cells with an inflated clearance safety halo.
+4. Step directly in front of the rover: the controller halts forward motion immediately without colliding.
 
-```bash
-ros2 run athena_gps_nav gps_waypoint_logger --ros-args -p output_file:=/home/robo/route.yaml
-ros2 run athena_gps_nav gps_waypoint_follower --ros-args -p waypoints_file:=/home/robo/route.yaml
-```
+---
 
-Expect arrival within a few metres, not centimetres: GPS here is **+-3.5 m
-1-sigma**, a receiver limit, not a tuning one.
+## 4. Recommended First Field Drive Procedure
 
-**Stage 3, local obstacle avoidance.** This is the depth camera's job and works
-with **no GPS at all** (the local costmap lives in `odom`).
-
-- *Static:* put a box ~1.5 m ahead, slightly off the line to a goal and send the
-  goal. The path should bend around the box. RViz shows dark lethal cells where
-  the box is, with a lighter inflation halo (the clearance Nav2 keeps).
-- *Dynamic:* with the rover driving, step into its path a few metres ahead. It
-  should re-plan around you and cells behind you should clear. Stand still directly
-  in front: it should stop, not push through.
-- *If it does not stop:* `ros2 topic hz /camera/camera/depth/color/points_downsampled`
-  (camera alive?) and `ros2 run athena_gps_nav stack_check`. `local costmap
-  marking` at 0 cells means the camera is not reaching the costmap: a perception
-  fault, not a controller one.
-
-Blind spots: the D435i sees nothing closer than ~0.2 m, nothing outside its ~87
-degree cone and nothing behind. The costmap remembers what it saw, but a rover
-turning in place only clears what the camera sees now. Approach obstacles head-on.
-
-## Recommended order for the first real drive
-
-1. `max_pwm:=100`: deliberately slow while you build confidence. It is an argument
-   of `drive.launch.py`; `bringup.launch.py` does not forward it, so for the Nav2
-   steps temporarily add `max_pwm: 100` to `~/.config/athena_drive/params.yaml`
-   (and remove it after)
-2. Teleop in open space
-3. Teleop near an obstacle, watching the costmap
-4. A short Nav2 goal, ~2 m, clear ground
-5. A Nav2 goal with one obstacle in the way
-6. GPS waypoints outdoors
-
-Keep a hand near the Pico's USB cable throughout; pulling it is the fastest
-stop you have.
+1. **Set Initial Speed Ceiling:**
+   For cautious indoor testing, limit the maximum PWM:
+   ```bash
+   ros2 launch athena_drive drive.launch.py max_pwm:=100
+   ```
+2. **Teleop in open space:** Validate forward, reverse, and turn controls.
+3. **Teleop near obstacles:** Confirm costmap updates in real time.
+4. **Short Nav2 Goal (2 meters):** Clear open ground.
+5. **Nav2 Goal with Obstacle:** Path bends smoothly around the object.
+6. **Outdoors RTK Waypoints:** Run `gps_waypoint_follower` to verify centimeter-accurate stopping.

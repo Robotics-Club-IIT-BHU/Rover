@@ -5,8 +5,8 @@
 #
 #     source athena_env.sh <OTHER_MACHINE_IP>
 #
-# e.g. on the laptop:   source athena_env.sh 100.101.102.103   # Jetson
-#      on the Jetson:   source athena_env.sh 100.101.102.104   # laptop
+# e.g. on the laptop:   source athena_env.sh $JETSON_IP   # Jetson's current IP
+#      on the Jetson:   source athena_env.sh $LAPTOP_IP   # Laptop's IP
 #
 # Use the Tailscale/VPN address if the WiFi isolates clients from each
 # other; the plain LAN address if it does not.

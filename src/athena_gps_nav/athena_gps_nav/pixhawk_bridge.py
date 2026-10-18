@@ -2,11 +2,19 @@
 """
 pixhawk_bridge.py
 
-Bridges the Pixhawk (PX4 FMU on /dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00)
+Bridges the flight controller (ArduPilot FC with a DroneCAN RTK GPS; the old
+PX4 FMU on /dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00 still works)
 to ROS 2 via pymavlink and publishes:
 
-    /gps/fix   (sensor_msgs/NavSatFix)  - from GPS_RAW_INT, covariance from HDOP
-    /imu/data  (sensor_msgs/Imu)        - from HIGHRES_IMU (or SCALED_IMU2) + ATTITUDE
+    /gps/fix   (sensor_msgs/NavSatFix)  - from GPS_RAW_INT; covariance from the
+                                          receiver's hAcc when RTK, else HDOP
+    /imu/data  (sensor_msgs/Imu)        - from HIGHRES_IMU / SCALED_IMU2 /
+                                          SCALED_IMU + ATTITUDE
+
+RTK: RTCM3 corrections are pulled from the base station's TCP stream
+(STRSVR / str2str) and injected into the FC as GPS_RTCM_DATA over this same
+MAVLink connection (only one process may own the serial port).  See rtcm.py.
+FC params: GPS_INJECT_TO=127, GPS1_TYPE=9 (DroneCAN), MAVLink 2 on the port.
 
 Based on athena_slam/gpsimusplit.py + imupub.py, with two important fixes for
 robot_localization / navsat_transform compatibility (REP-103 / REP-145):
@@ -21,18 +29,30 @@ robot_localization / navsat_transform compatibility (REP-103 / REP-145):
 No fusion is done here - this sits upstream of the EKFs.
 """
 
+import glob
 import math
+import os
 import threading
+import time
 
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+# MAVLink 2 BEFORE pymavlink is imported: the default v1.0 dialect does not
+# decode the GPS_RAW_INT extension fields (h_acc, v_acc) that RTK needs.
+os.environ.setdefault('MAVLINK20', '1')
 
-from geometry_msgs.msg import Twist
-from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
-from pymavlink import mavutil
+import rclpy  # noqa: E402
+from rclpy.node import Node  # noqa: E402
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy  # noqa: E402
+
+from geometry_msgs.msg import Twist  # noqa: E402
+from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus  # noqa: E402
+from pymavlink import mavutil  # noqa: E402
+
+from athena_gps_nav.rtcm import RtcmSender, RtcmTcpClient  # noqa: E402
 
 G = 9.80665
+
+FIX_NAMES = {0: 'NO GPS', 1: 'NO FIX', 2: '2D', 3: '3D', 4: 'DGPS',
+             5: 'RTK FLOAT', 6: 'RTK FIXED', 7: 'STATIC', 8: 'PPP'}
 
 
 def _patch_pymavlink_instances():
@@ -67,6 +87,21 @@ _patch_pymavlink_instances()
 PIXHAWK_BY_ID = '/dev/serial/by-id/usb-3D_Robotics_PX4_FMU_v2.x_0-if00'
 
 
+def find_fc_port():
+    """Pick the flight controller's serial device.
+
+    Prefers a stable /dev/serial/by-id name (an ArduPilot-family FC, then the
+    old PX4 FMU) over /dev/ttyACM*, whose numbering moves around when the
+    Pico or other CDC devices enumerate first.  Override with the `port`
+    parameter.
+    """
+    ids = sorted(glob.glob('/dev/serial/by-id/*'))
+    for pat in ('ArduPilot', 'Ardu', 'CubeOrange', 'Cube', 'Pixhawk', 'PX4'):
+        for p in ids:
+            if pat.lower() in os.path.basename(p).lower():
+                return p
+    return PIXHAWK_BY_ID
+
 
 def _msg_id(name, fallback):
     """MAVLink message ID by name, falling back to the standard numeric ID.
@@ -82,7 +117,8 @@ class PixhawkBridge(Node):
     def __init__(self):
         super().__init__('pixhawk_bridge')
 
-        self.declare_parameter('port', PIXHAWK_BY_ID)
+        # '' = auto-detect via find_fc_port()
+        self.declare_parameter('port', '')
         # 921600, NOT 115200. Measured on this FMU: at 115200 the link
         # saturates and a THIRD of all MAVLink packets arrive corrupt
         # (33% BAD_DATA, ~5 usable IMU samples/s); at 921600 corruption
@@ -120,6 +156,23 @@ class PixhawkBridge(Node):
         # "Setting the GPS error model honestly" in the README.
         self.declare_parameter('gps_uere', 1.74)
         self.declare_parameter('gps_sigma_floor', 3.06)
+        # --- RTK ---------------------------------------------------------
+        # With an RTK fix (fix_type >= 4) the receiver's own horizontal /
+        # vertical accuracy estimate (GPS_RAW_INT.h_acc / v_acc, mm) is a
+        # far better covariance than HDOP*UERE, which describes standalone
+        # GPS.  The floor stops the EKF from trusting a centimetre-claimed
+        # solution absolutely.
+        self.declare_parameter('gps_rtk_sigma_floor', 0.02)    # metres
+        self.declare_parameter('rtcm_enabled', True)
+        default_rtcm_host = (
+            os.environ.get('RTCM_HOST')
+            or os.environ.get('BASE_STATION_IP')
+            or '127.0.0.1'
+        )
+        self.declare_parameter('rtcm_host', default_rtcm_host)
+        self.declare_parameter('rtcm_port', 2101)
+        # seconds of base-stream silence before warning
+        self.declare_parameter('rtcm_stale_warn', 10.0)
         # --- gyro zero-rate bias compensation ---------------------------
         # HIGHRES_IMU carries the raw rate; nothing upstream removes the
         # gyro's zero-rate offset.  Measured on this airframe 2026-09-02:
@@ -160,6 +213,15 @@ class PixhawkBridge(Node):
         self._gps_sigma_floor = float(
             self.get_parameter('gps_sigma_floor').value)
         self._publish_no_fix = bool(self.get_parameter('publish_no_fix').value)
+        self._rtk_floor = float(self.get_parameter('gps_rtk_sigma_floor').value)
+        self._rtcm_stale = float(self.get_parameter('rtcm_stale_warn').value)
+        self._last_h_acc = 0.0
+        # every MAVLink write (stream requests, RTCM fragments) takes this
+        self._tx_lock = threading.Lock()
+        self._rtcm = None
+        self._rtcm_sender = None
+        self._rtcm_tx = 0
+        self._t_start = time.time()
 
         qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
@@ -194,7 +256,7 @@ class PixhawkBridge(Node):
         self._bad_data = 0
         self._good_data = 0
 
-        port = self.get_parameter('port').value
+        port = self.get_parameter('port').value or find_fc_port()
         baud = int(self.get_parameter('baud').value)
         self.get_logger().info(f'Connecting to Pixhawk at {port} (baud={baud})...')
         self.mav = mavutil.mavlink_connection(port, baud=baud)
@@ -204,6 +266,7 @@ class PixhawkBridge(Node):
             f'comp={self.mav.target_component})')
 
         self._request_streams()
+        self._start_rtcm()
 
         self._stop = False
         self._thread = threading.Thread(target=self._mavlink_loop, daemon=True)
@@ -211,6 +274,24 @@ class PixhawkBridge(Node):
 
         # Low-rate health log so `ros2 launch` output shows liveness.
         self.create_timer(10.0, self._report_health)
+
+    def _start_rtcm(self):
+        if not self.get_parameter('rtcm_enabled').value:
+            self.get_logger().info('RTCM injection disabled (rtcm_enabled=false)')
+            return
+        host = self.get_parameter('rtcm_host').value
+        rport = int(self.get_parameter('rtcm_port').value)
+        self._rtcm_sender = RtcmSender(self.mav, lock=self._tx_lock)
+        self._rtcm = RtcmTcpClient(
+            host, rport, self._on_rtcm_frame,
+            log=lambda s: self.get_logger().info(s))
+        self._rtcm.start()
+        self.get_logger().info(
+            f'RTK: injecting RTCM from {host}:{rport} as GPS_RTCM_DATA')
+
+    def _on_rtcm_frame(self, frame):
+        if self._rtcm_sender.send(frame):
+            self._rtcm_tx += 1
 
     def _request_streams(self):
         imu_rate = int(self.get_parameter('imu_rate_hz').value)
@@ -226,6 +307,9 @@ class PixhawkBridge(Node):
         requests = [
             (_msg_id('HIGHRES_IMU', 105), imu_rate),
             (_msg_id('SCALED_IMU2', 116), imu_rate),
+            # ArduPilot: neither of the above is guaranteed; SCALED_IMU is
+            # the one it always has.  Only used as a last resort (see loop).
+            (_msg_id('SCALED_IMU', 26), imu_rate),
             (_msg_id('ATTITUDE', 30), imu_rate),
             (_msg_id('GPS_RAW_INT', 24), gps_rate),
         ]
@@ -267,7 +351,12 @@ class PixhawkBridge(Node):
     # ------------------------------------------------------------------ mavlink
     def _mavlink_loop(self):
         while not self._stop and rclpy.ok():
-            msg = self.mav.recv_match(blocking=True, timeout=1.0)
+            try:
+                msg = self.mav.recv_match(blocking=True, timeout=1.0)
+            except Exception as e:
+                self._bad_data += 1
+                time.sleep(0.01)
+                continue
             if msg is None:
                 continue
             t = msg.get_type()
@@ -291,6 +380,20 @@ class PixhawkBridge(Node):
                     self._imu_source = 'SCALED_IMU2'
                     self.get_logger().info('IMU source: SCALED_IMU2 (mg / mrad/s)')
                 if self._imu_source == 'SCALED_IMU2':
+                    self._publish_imu(
+                        msg.xacc / 1000.0 * G, msg.yacc / 1000.0 * G,
+                        msg.zacc / 1000.0 * G,
+                        msg.xgyro / 1000.0, msg.ygyro / 1000.0,
+                        msg.zgyro / 1000.0)
+            elif t == 'SCALED_IMU':
+                # Last-resort source: wait 3 s so HIGHRES_IMU / SCALED_IMU2,
+                # which the PX4 FMU streams, win when they exist.
+                if (self._imu_source is None
+                        and time.time() - self._t_start > 3.0):
+                    self._imu_source = 'SCALED_IMU'
+                    self.get_logger().info(
+                        'IMU source: SCALED_IMU (mg / mrad/s)')
+                if self._imu_source == 'SCALED_IMU':
                     self._publish_imu(
                         msg.xacc / 1000.0 * G, msg.yacc / 1000.0 * G,
                         msg.zacc / 1000.0 * G,
@@ -448,8 +551,15 @@ class PixhawkBridge(Node):
         fix.header.stamp = self.get_clock().now().to_msg()
         fix.header.frame_id = self.gps_frame_id
 
-        fix.status.status = (NavSatStatus.STATUS_FIX if has_fix
-                             else NavSatStatus.STATUS_NO_FIX)
+        if msg.fix_type >= 5:
+            status = NavSatStatus.STATUS_GBAS_FIX      # RTK float / fixed
+        elif msg.fix_type == 4:
+            status = NavSatStatus.STATUS_SBAS_FIX      # DGPS
+        elif has_fix:
+            status = NavSatStatus.STATUS_FIX
+        else:
+            status = NavSatStatus.STATUS_NO_FIX
+        fix.status.status = status
         fix.status.service = NavSatStatus.SERVICE_GPS
 
         fix.latitude = msg.lat / 1e7
@@ -465,6 +575,16 @@ class PixhawkBridge(Node):
         # vertical is empirically far worse: 25 m of altitude range was seen
         # over 240 s stationary, so give the floor twice the weight there.
         sv = math.sqrt((vdop * self._gps_uere) ** 2 + (2.0 * floor) ** 2)
+
+        # RTK / DGPS: the receiver's own accuracy estimate (mm) replaces the
+        # standalone-GPS model.  h_acc/v_acc are 0 when unknown, in which
+        # case the HDOP model above stays in force.
+        h_acc = getattr(msg, 'h_acc', 0) / 1000.0
+        v_acc = getattr(msg, 'v_acc', 0) / 1000.0
+        self._last_h_acc = h_acc
+        if msg.fix_type >= 4 and h_acc > 0.0:
+            sh = max(h_acc, self._rtk_floor)
+            sv = max(v_acc, 2.0 * self._rtk_floor) if v_acc > 0.0 else 2.0 * sh
         fix.position_covariance = [
             sh * sh, 0.0, 0.0,
             0.0, sh * sh, 0.0,
@@ -483,6 +603,23 @@ class PixhawkBridge(Node):
             f'gps msgs: {self._gps_count} '
             f'(fix_type={self._last_fix_type}, sats={self._last_sats}), '
             f'link corruption: {corrupt:.1f}%')
+        if self._rtcm is not None:
+            counts = self._rtcm.drain_counts()
+            summary = ' '.join(f'{k}:{v}' for k, v in sorted(counts.items())) \
+                or 'none'
+            age = self._rtcm.data_age()
+            fix_name = FIX_NAMES.get(self._last_fix_type, self._last_fix_type)
+            acc = (f'{self._last_h_acc:.3f} m' if self._last_h_acc > 0
+                   else 'n/a')
+            self.get_logger().info(
+                f'RTK: {fix_name}, hAcc {acc}, RTCM last 10 s [{summary}], '
+                f'data age {age:.1f}s, bad CRC {self._rtcm.bad_crc}')
+            if age > self._rtcm_stale:
+                self.get_logger().warn(
+                    f'no RTCM from base {self._rtcm.host}:{self._rtcm.port} '
+                    f'for {age:.0f}s (connected={self._rtcm.connected}) - '
+                    'fix will fall back to standalone GPS. Is STRSVR running '
+                    'and reachable?', throttle_duration_sec=30.0)
         if corrupt > 15.0:
             self.get_logger().warn(
                 f'MAVLink link is {corrupt:.0f}% corrupt - the serial link is '
@@ -503,6 +640,8 @@ class PixhawkBridge(Node):
 
     def destroy_node(self):
         self._stop = True
+        if self._rtcm is not None:
+            self._rtcm.stop()
         if self._thread.is_alive():
             self._thread.join(timeout=2.0)
         super().destroy_node()

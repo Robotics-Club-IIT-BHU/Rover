@@ -38,6 +38,7 @@ from rclpy.node import Node
 
 from action_msgs.srv import CancelGoal
 from geometry_msgs.msg import Twist
+from nav2_msgs.srv import ClearEntireCostmap
 from std_msgs.msg import Float32, String
 
 DEADBAND = 0.02          # below this a stick axis counts as centred
@@ -79,6 +80,10 @@ class TeleopMux(Node):
         # goal_manager, or a script, not just ones we know about.
         self.cancel_cli = self.create_client(
             CancelGoal, '/navigate_to_pose/_action/cancel_goal')
+        self.clear_local_cli = self.create_client(
+            ClearEntireCostmap, '/local_costmap/clear_entirely_local_costmap')
+        self.clear_global_cli = self.create_client(
+            ClearEntireCostmap, '/global_costmap/clear_entirely_global_costmap')
 
         rate = float(self.get_parameter('publish_rate').value)
         self.create_timer(1.0 / max(rate, 1.0), self._tick)
@@ -117,6 +122,13 @@ class TeleopMux(Node):
             return          # Nav2 is not running; nothing to cancel
         self.cancel_cli.call_async(CancelGoal.Request())
 
+    def _clear_costmaps(self):
+        """Clear costmaps after manual driving so smeared or blind-reversed obstacles do not block Nav2."""
+        if self.clear_local_cli.service_is_ready():
+            self.clear_local_cli.call_async(ClearEntireCostmap.Request())
+        if self.clear_global_cli.service_is_ready():
+            self.clear_global_cli.call_async(ClearEntireCostmap.Request())
+
     # ------------------------------------------------------------- output
     def _tick(self):
         if self._last_input is None:
@@ -131,7 +143,8 @@ class TeleopMux(Node):
                 self.cmd_pub.publish(Twist())
                 self._active = False
                 self._dir = (0.0, 0.0)
-                self.get_logger().info('manual control released')
+                self.get_logger().info('manual control released; clearing costmaps')
+                self._clear_costmaps()
             return
 
         t = Twist()
