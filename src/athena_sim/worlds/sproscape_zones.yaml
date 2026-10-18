@@ -26,6 +26,11 @@ rado_objects:
   x: 25.0
   y: 35.0
   mass_kg: 1.8
+- id: TOOL_HAMMER
+  name: Hammer / Mallet
+  x: 28.0
+  y: 38.0
+  mass_kg: 1.5
 - id: TOOL_2
   name: Screwdriver Set
   x: 40.0

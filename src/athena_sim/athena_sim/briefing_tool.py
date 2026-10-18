@@ -61,6 +61,7 @@ def generate_briefing(
             'start_line': {'x': 0.0, 'y': 0.0, 'name': 'Base Station Start Gate'},
             'rado_objects': [
                 {'id': 'TOOL_1', 'name': 'Heavy Wrench (≤7cm dia)', 'x': 25.0, 'y': 35.0, 'mass_kg': 1.8},
+                {'id': 'TOOL_HAMMER', 'name': 'Hammer / Mallet', 'x': 28.0, 'y': 38.0, 'mass_kg': 1.5},
                 {'id': 'TOOL_2', 'name': 'Screwdriver Set', 'x': 40.0, 'y': 60.0, 'mass_kg': 0.9},
                 {'id': 'BOX_1',  'name': 'Instrument Toolbox', 'x': 70.0, 'y': 45.0, 'mass_kg': 4.5},
                 {'id': 'ROCK_1', 'name': 'Basalt Specimen A', 'x': 55.0, 'y': 85.0, 'mass_kg': 3.2},

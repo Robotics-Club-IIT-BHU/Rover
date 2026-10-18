@@ -51,6 +51,8 @@
   <xacro:property name="base_height"     value="0.25"/>  <!-- ground to base_link with 30cm wheels -->
   <xacro:property name="chassis_height"  value="0.28"/>  <!-- 28 cm chassis box height -->
   <xacro:property name="track_width"     value="0.85"/>  <!-- wheel centre to centre -->
+  <xacro:property name="suspension_y"    value="0.32"/>  <!-- inner suspension plane Y offset (32cm from centre) -->
+  <xacro:property name="spindle_length"  value="${track_width/2 - suspension_y}"/>  <!-- 0.105m axle spindle stub length -->
 
   <!-- Camera: RealSense D435i mounted at top of chassis at front centre.
        Lens is at x = 0.50 (front face of chassis), z = 0.40 (top deck of chassis,
@@ -102,10 +104,10 @@
       <geometry><box size="0.75 0.50 0.005"/></geometry>
       <material name="athena_accent"/>
     </visual>
-    <!-- Transverse rocker pivot axle tube extending across lower end of chassis -->
+    <!-- Transverse rocker pivot axle tube extending across lower end of chassis from chassis to rocker -->
     <visual>
       <origin xyz="${rocker_pivot_x} 0 ${rocker_pivot_z}" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.025" length="${track_width}"/></geometry>
+      <geometry><cylinder radius="0.025" length="${suspension_y * 2}"/></geometry>
       <material name="athena_rocker"/>
     </visual>
     <xacro:if value="${is_sim}">
@@ -175,6 +177,12 @@
         <geometry><box size="0.456 0.04 0.04"/></geometry>
         <material name="athena_rocker"/>
       </visual>
+      <!-- Axle spindle stub connecting rocker arm to front wheel hub -->
+      <visual>
+        <origin xyz="0.40 ${y_sign * spindle_length/2} -0.22" rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="0.02" length="${spindle_length}"/></geometry>
+        <material name="athena_rocker"/>
+      </visual>
       <!-- Beam from pivot backward and down to bogie joint -->
       <visual>
         <origin xyz="-0.10 0 -0.06" rpy="0 -0.540 0"/>
@@ -192,6 +200,10 @@
           <origin xyz="0.20 0 -0.11" rpy="0 0.502 0"/>
           <geometry><box size="0.456 0.04 0.04"/></geometry>
         </collision>
+        <collision>
+          <origin xyz="0.40 ${y_sign * (spindle_length - wheel_width/2 - 0.005)/2} -0.22" rpy="1.5708 0 0"/>
+          <geometry><cylinder radius="0.02" length="${spindle_length - wheel_width/2 - 0.005}"/></geometry>
+        </collision>
         <inertial>
           <mass value="3.0"/>
           <origin xyz="0.10 0 -0.08" rpy="0 0 0"/>
@@ -204,7 +216,7 @@
       <joint name="rocker_${side}_joint" type="fixed">
         <parent link="base_link"/>
         <child  link="rocker_${side}"/>
-        <origin xyz="${rocker_pivot_x} ${y_sign * track_width/2} ${rocker_pivot_z}" rpy="0 0 0"/>
+        <origin xyz="${rocker_pivot_x} ${y_sign * suspension_y} ${rocker_pivot_z}" rpy="0 0 0"/>
       </joint>
     </xacro:unless>
 
@@ -212,7 +224,7 @@
       <joint name="rocker_${side}_joint" type="revolute">
         <parent link="base_link"/>
         <child  link="rocker_${side}"/>
-        <origin xyz="${rocker_pivot_x} ${y_sign * track_width/2} ${rocker_pivot_z}" rpy="0 0 0"/>
+        <origin xyz="${rocker_pivot_x} ${y_sign * suspension_y} ${rocker_pivot_z}" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
         <limit lower="-0.45" upper="0.45" effort="120.0" velocity="5.0"/>
         <dynamics damping="1.0" friction="0.5"/>
@@ -233,16 +245,36 @@
         <geometry><box size="0.18 0.035 0.035"/></geometry>
         <material name="athena_rocker"/>
       </visual>
+      <!-- Mid wheel axle spindle stub connecting bogie arm to wheel hub -->
+      <visual>
+        <origin xyz="0.15 ${y_sign * spindle_length/2} -0.10" rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="0.02" length="${spindle_length}"/></geometry>
+        <material name="athena_rocker"/>
+      </visual>
       <!-- Beam from bogie pivot backward and down to rear wheel -->
       <visual>
         <origin xyz="-0.15 0 -0.05" rpy="0 -0.322 0"/>
         <geometry><box size="0.316 0.035 0.035"/></geometry>
         <material name="athena_rocker"/>
       </visual>
+      <!-- Rear wheel axle spindle stub connecting bogie arm to wheel hub -->
+      <visual>
+        <origin xyz="-0.30 ${y_sign * spindle_length/2} -0.10" rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="0.02" length="${spindle_length}"/></geometry>
+        <material name="athena_rocker"/>
+      </visual>
       <xacro:if value="${is_sim}">
         <collision>
           <origin xyz="-0.075 0 -0.05" rpy="0 0 0"/>
           <geometry><box size="0.48 0.035 0.035"/></geometry>
+        </collision>
+        <collision>
+          <origin xyz="0.15 ${y_sign * (spindle_length - wheel_width/2 - 0.005)/2} -0.10" rpy="1.5708 0 0"/>
+          <geometry><cylinder radius="0.02" length="${spindle_length - wheel_width/2 - 0.005}"/></geometry>
+        </collision>
+        <collision>
+          <origin xyz="-0.30 ${y_sign * (spindle_length - wheel_width/2 - 0.005)/2} -0.10" rpy="1.5708 0 0"/>
+          <geometry><cylinder radius="0.02" length="${spindle_length - wheel_width/2 - 0.005}"/></geometry>
         </collision>
         <inertial>
           <mass value="2.5"/>
@@ -273,15 +305,15 @@
 
     <!-- Front Wheel attached to Rocker (x=0.45, z=-0.10 in base_link) -->
     <xacro:wheel_instance name="wheel_front_${side}" parent="rocker_${side}"
-                          x="0.40" y="0.0" z="-0.22"/>
+                          x="0.40" y="${y_sign * spindle_length}" z="-0.22"/>
 
     <!-- Mid Wheel attached to Bogie (x=0.00, z=-0.10 in base_link) -->
     <xacro:wheel_instance name="wheel_mid_${side}" parent="bogie_${side}"
-                          x="0.15" y="0.0" z="-0.10"/>
+                          x="0.15" y="${y_sign * spindle_length}" z="-0.10"/>
 
     <!-- Rear Wheel attached to Bogie (x=-0.45, z=-0.10 in base_link) -->
     <xacro:wheel_instance name="wheel_rear_${side}" parent="bogie_${side}"
-                          x="-0.30" y="0.0" z="-0.10"/>
+                          x="-0.30" y="${y_sign * spindle_length}" z="-0.10"/>
   </xacro:macro>
 
   <!-- Wheel instance macro (30 cm diameter, 3.5 kg mass) -->
