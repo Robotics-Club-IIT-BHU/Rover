@@ -47,14 +47,14 @@
     <!-- Procedural Sproscape-Sim Mars analog heightmap -->
     <model name="sproscape_terrain">
       <static>true</static>
-      <pose>0 0 0 0 0 0</pose>
+      <pose>60.0 60.0 0 0 0 0</pose>
       <link name="terrain_link">
         <collision name="collision">
           <geometry>
             <heightmap>
               <uri>sproscape_heightmap.png</uri>
-              <size>120.0 120.0 2.46</size>
-              <pos>60.0 60.0 0.000</pos>
+              <size>120.0 120.0 1.397</size>
+              <pos>0 0 0</pos>
             </heightmap>
           </geometry>
           <surface>
@@ -76,8 +76,8 @@
                 <size>10</size>
               </texture>
               <uri>sproscape_heightmap.png</uri>
-              <size>120.0 120.0 2.46</size>
-              <pos>60.0 60.0 0.000</pos>
+              <size>120.0 120.0 1.397</size>
+              <pos>0 0 0</pos>
             </heightmap>
           </geometry>
         </visual>
@@ -90,11 +90,11 @@
       <link name="walls_link">
         <!-- South Wall (y = 0.0) -->
         <collision name="wall_south_col">
-          <pose>60.0 0.0 1.0 0 0 0</pose>
+          <pose>60.0 0.0 1.25 0 0 0</pose>
           <geometry><box><size>120.8 0.8 2.5</size></box></geometry>
         </collision>
         <visual name="wall_south_vis">
-          <pose>60.0 0.0 1.0 0 0 0</pose>
+          <pose>60.0 0.0 1.25 0 0 0</pose>
           <geometry><box><size>120.8 0.8 2.5</size></box></geometry>
           <material>
             <ambient>0.15 0.12 0.10 1</ambient>
@@ -104,11 +104,11 @@
         </visual>
         <!-- North Wall (y = 120.0) -->
         <collision name="wall_north_col">
-          <pose>60.0 120.0 1.0 0 0 0</pose>
+          <pose>60.0 120.0 1.25 0 0 0</pose>
           <geometry><box><size>120.8 0.8 2.5</size></box></geometry>
         </collision>
         <visual name="wall_north_vis">
-          <pose>60.0 120.0 1.0 0 0 0</pose>
+          <pose>60.0 120.0 1.25 0 0 0</pose>
           <geometry><box><size>120.8 0.8 2.5</size></box></geometry>
           <material>
             <ambient>0.15 0.12 0.10 1</ambient>
@@ -118,11 +118,11 @@
         </visual>
         <!-- West Wall (x = 0.0) -->
         <collision name="wall_west_col">
-          <pose>0.0 60.0 1.0 0 0 0</pose>
+          <pose>0.0 60.0 1.25 0 0 0</pose>
           <geometry><box><size>0.8 120.8 2.5</size></box></geometry>
         </collision>
         <visual name="wall_west_vis">
-          <pose>0.0 60.0 1.0 0 0 0</pose>
+          <pose>0.0 60.0 1.25 0 0 0</pose>
           <geometry><box><size>0.8 120.8 2.5</size></box></geometry>
           <material>
             <ambient>0.15 0.12 0.10 1</ambient>
@@ -132,11 +132,11 @@
         </visual>
         <!-- East Wall (x = 120.0) -->
         <collision name="wall_east_col">
-          <pose>120.0 60.0 1.0 0 0 0</pose>
+          <pose>120.0 60.0 1.25 0 0 0</pose>
           <geometry><box><size>0.8 120.8 2.5</size></box></geometry>
         </collision>
         <visual name="wall_east_vis">
-          <pose>120.0 60.0 1.0 0 0 0</pose>
+          <pose>120.0 60.0 1.25 0 0 0</pose>
           <geometry><box><size>0.8 120.8 2.5</size></box></geometry>
           <material>
             <ambient>0.15 0.12 0.10 1</ambient>
@@ -150,7 +150,7 @@
     <!-- 2. Delivery Marker Alpha: Green target pad with concentric rings and 1.5m beacon -->
     <model name="marker_drop_alpha">
       <static>true</static>
-      <pose>30.0 70.0 0.724 0 0 0</pose>
+      <pose>30.0 70.0 0.296 0.0015 -0.0024 0.0000</pose>
       <link name="link">
         <!-- Landing Pad (outer ring 2.5m diameter) -->
         <collision name="pad_col">
@@ -197,7 +197,7 @@
     <!-- 3. Delivery Marker Bravo: Blue target pad with concentric rings and 1.5m beacon -->
     <model name="marker_drop_bravo">
       <static>true</static>
-      <pose>80.0 80.0 1.602 0 0 0</pose>
+      <pose>80.0 80.0 0.952 0.0407 -0.0294 0.0000</pose>
       <link name="link">
         <!-- Landing Pad (outer ring 2.5m diameter) -->
         <collision name="pad_col">
@@ -244,7 +244,7 @@
     <!-- 4. ABEx Science Sample Cache Platform with orange/white markings -->
     <model name="abex_cache_platform">
       <static>true</static>
-      <pose>60.0 30.0 0.684 0 0 0</pose>
+      <pose>60.0 30.0 0.483 0.0191 0.0177 0.0000</pose>
       <link name="link">
         <!-- Platform Base (2.4m x 2.4m) -->
         <collision name="platform_col">
@@ -291,7 +291,7 @@
     <!-- 5. IDMO Maintenance Service Panel Stand (1.8m vertical mock service panel) -->
     <model name="idmo_maintenance_panel">
       <static>true</static>
-      <pose>15.0 50.0 0.648 0 0 0</pose>
+      <pose>15.0 50.0 0.257 0.0006 0.0037 0.0000</pose>
       <link name="link">
         <!-- Base Plate -->
         <collision name="base_col">
@@ -380,201 +380,201 @@
       <link name="link">
         <!-- Pylon 0 -->
         <collision name="pylon_0_col">
-          <pose>56.000 75.000 1.089 0 0 0</pose>
+          <pose>56.000 75.000 1.236 -0.0121 -0.0089 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_0_base">
-          <pose>56.000 75.000 0.759 0 0 0</pose>
+          <pose>56.000 75.000 0.906 -0.0121 -0.0089 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_0_cone">
-          <pose>56.000 75.000 1.089 0 0 0</pose>
+          <pose>56.000 75.000 1.236 -0.0121 -0.0089 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_0_stripe">
-          <pose>56.000 75.000 1.189 0 0 0</pose>
+          <pose>56.000 75.000 1.336 -0.0121 -0.0089 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_0_top">
-          <pose>56.000 75.000 1.459 0 0 0</pose>
+          <pose>56.000 75.000 1.606 -0.0121 -0.0089 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 1 -->
         <collision name="pylon_1_col">
-          <pose>54.243 79.243 1.091 0 0 0</pose>
+          <pose>54.243 79.243 1.188 -0.0080 -0.0021 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_1_base">
-          <pose>54.243 79.243 0.761 0 0 0</pose>
+          <pose>54.243 79.243 0.858 -0.0080 -0.0021 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_1_cone">
-          <pose>54.243 79.243 1.091 0 0 0</pose>
+          <pose>54.243 79.243 1.188 -0.0080 -0.0021 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_1_stripe">
-          <pose>54.243 79.243 1.191 0 0 0</pose>
+          <pose>54.243 79.243 1.288 -0.0080 -0.0021 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_1_top">
-          <pose>54.243 79.243 1.461 0 0 0</pose>
+          <pose>54.243 79.243 1.558 -0.0080 -0.0021 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 2 -->
         <collision name="pylon_2_col">
-          <pose>50.000 81.000 1.091 0 0 0</pose>
+          <pose>50.000 81.000 1.150 0.0034 -0.0140 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_2_base">
-          <pose>50.000 81.000 0.761 0 0 0</pose>
+          <pose>50.000 81.000 0.820 0.0034 -0.0140 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_2_cone">
-          <pose>50.000 81.000 1.091 0 0 0</pose>
+          <pose>50.000 81.000 1.150 0.0034 -0.0140 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_2_stripe">
-          <pose>50.000 81.000 1.191 0 0 0</pose>
+          <pose>50.000 81.000 1.250 0.0034 -0.0140 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_2_top">
-          <pose>50.000 81.000 1.461 0 0 0</pose>
+          <pose>50.000 81.000 1.520 0.0034 -0.0140 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 3 -->
         <collision name="pylon_3_col">
-          <pose>45.757 79.243 1.829 0 0 0</pose>
+          <pose>45.757 79.243 0.999 0.0364 -0.0506 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_3_base">
-          <pose>45.757 79.243 1.499 0 0 0</pose>
+          <pose>45.757 79.243 0.669 0.0364 -0.0506 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_3_cone">
-          <pose>45.757 79.243 1.829 0 0 0</pose>
+          <pose>45.757 79.243 0.999 0.0364 -0.0506 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_3_stripe">
-          <pose>45.757 79.243 1.929 0 0 0</pose>
+          <pose>45.757 79.243 1.099 0.0364 -0.0506 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_3_top">
-          <pose>45.757 79.243 2.199 0 0 0</pose>
+          <pose>45.757 79.243 1.369 0.0364 -0.0506 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 4 -->
         <collision name="pylon_4_col">
-          <pose>44.000 75.000 2.593 0 0 0</pose>
+          <pose>44.000 75.000 0.688 0.0625 -0.0429 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_4_base">
-          <pose>44.000 75.000 2.263 0 0 0</pose>
+          <pose>44.000 75.000 0.358 0.0625 -0.0429 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_4_cone">
-          <pose>44.000 75.000 2.593 0 0 0</pose>
+          <pose>44.000 75.000 0.688 0.0625 -0.0429 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_4_stripe">
-          <pose>44.000 75.000 2.693 0 0 0</pose>
+          <pose>44.000 75.000 0.788 0.0625 -0.0429 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_4_top">
-          <pose>44.000 75.000 2.963 0 0 0</pose>
+          <pose>44.000 75.000 1.058 0.0625 -0.0429 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 5 -->
         <collision name="pylon_5_col">
-          <pose>45.757 70.757 2.491 0 0 0</pose>
+          <pose>45.757 70.757 0.530 0.0386 -0.0918 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_5_base">
-          <pose>45.757 70.757 2.161 0 0 0</pose>
+          <pose>45.757 70.757 0.200 0.0386 -0.0918 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_5_cone">
-          <pose>45.757 70.757 2.491 0 0 0</pose>
+          <pose>45.757 70.757 0.530 0.0386 -0.0918 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_5_stripe">
-          <pose>45.757 70.757 2.591 0 0 0</pose>
+          <pose>45.757 70.757 0.630 0.0386 -0.0918 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_5_top">
-          <pose>45.757 70.757 2.861 0 0 0</pose>
+          <pose>45.757 70.757 0.900 0.0386 -0.0918 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 6 -->
         <collision name="pylon_6_col">
-          <pose>50.000 69.000 2.436 0 0 0</pose>
+          <pose>50.000 69.000 0.983 -0.0173 -0.0984 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_6_base">
-          <pose>50.000 69.000 2.106 0 0 0</pose>
+          <pose>50.000 69.000 0.653 -0.0173 -0.0984 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_6_cone">
-          <pose>50.000 69.000 2.436 0 0 0</pose>
+          <pose>50.000 69.000 0.983 -0.0173 -0.0984 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_6_stripe">
-          <pose>50.000 69.000 2.536 0 0 0</pose>
+          <pose>50.000 69.000 1.083 -0.0173 -0.0984 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_6_top">
-          <pose>50.000 69.000 2.806 0 0 0</pose>
+          <pose>50.000 69.000 1.353 -0.0173 -0.0984 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 7 -->
         <collision name="pylon_7_col">
-          <pose>54.243 70.757 1.889 0 0 0</pose>
+          <pose>54.243 70.757 1.255 -0.0163 -0.0434 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_7_base">
-          <pose>54.243 70.757 1.559 0 0 0</pose>
+          <pose>54.243 70.757 0.925 -0.0163 -0.0434 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_7_cone">
-          <pose>54.243 70.757 1.889 0 0 0</pose>
+          <pose>54.243 70.757 1.255 -0.0163 -0.0434 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_7_stripe">
-          <pose>54.243 70.757 1.989 0 0 0</pose>
+          <pose>54.243 70.757 1.355 -0.0163 -0.0434 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_7_top">
-          <pose>54.243 70.757 2.259 0 0 0</pose>
+          <pose>54.243 70.757 1.625 -0.0163 -0.0434 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
@@ -586,201 +586,201 @@
       <link name="link">
         <!-- Pylon 0 -->
         <collision name="pylon_0_col">
-          <pose>28.000 90.000 1.228 0 0 0</pose>
+          <pose>28.000 90.000 0.782 0.0090 0.0125 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_0_base">
-          <pose>28.000 90.000 0.898 0 0 0</pose>
+          <pose>28.000 90.000 0.452 0.0090 0.0125 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_0_cone">
-          <pose>28.000 90.000 1.228 0 0 0</pose>
+          <pose>28.000 90.000 0.782 0.0090 0.0125 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_0_stripe">
-          <pose>28.000 90.000 1.328 0 0 0</pose>
+          <pose>28.000 90.000 0.882 0.0090 0.0125 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_0_top">
-          <pose>28.000 90.000 1.598 0 0 0</pose>
+          <pose>28.000 90.000 1.152 0.0090 0.0125 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 1 -->
         <collision name="pylon_1_col">
-          <pose>25.657 95.657 0.839 0 0 0</pose>
+          <pose>25.657 95.657 0.859 0.0082 0.0101 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_1_base">
-          <pose>25.657 95.657 0.509 0 0 0</pose>
+          <pose>25.657 95.657 0.529 0.0082 0.0101 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_1_cone">
-          <pose>25.657 95.657 0.839 0 0 0</pose>
+          <pose>25.657 95.657 0.859 0.0082 0.0101 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_1_stripe">
-          <pose>25.657 95.657 0.939 0 0 0</pose>
+          <pose>25.657 95.657 0.959 0.0082 0.0101 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_1_top">
-          <pose>25.657 95.657 1.209 0 0 0</pose>
+          <pose>25.657 95.657 1.229 0.0082 0.0101 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 2 -->
         <collision name="pylon_2_col">
-          <pose>20.000 98.000 1.196 0 0 0</pose>
+          <pose>20.000 98.000 0.913 0.0028 0.0045 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_2_base">
-          <pose>20.000 98.000 0.866 0 0 0</pose>
+          <pose>20.000 98.000 0.583 0.0028 0.0045 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_2_cone">
-          <pose>20.000 98.000 1.196 0 0 0</pose>
+          <pose>20.000 98.000 0.913 0.0028 0.0045 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_2_stripe">
-          <pose>20.000 98.000 1.296 0 0 0</pose>
+          <pose>20.000 98.000 1.013 0.0028 0.0045 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_2_top">
-          <pose>20.000 98.000 1.566 0 0 0</pose>
+          <pose>20.000 98.000 1.283 0.0028 0.0045 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 3 -->
         <collision name="pylon_3_col">
-          <pose>14.343 95.657 1.095 0 0 0</pose>
+          <pose>14.343 95.657 0.932 -0.0023 0.0008 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_3_base">
-          <pose>14.343 95.657 0.765 0 0 0</pose>
+          <pose>14.343 95.657 0.602 -0.0023 0.0008 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_3_cone">
-          <pose>14.343 95.657 1.095 0 0 0</pose>
+          <pose>14.343 95.657 0.932 -0.0023 0.0008 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_3_stripe">
-          <pose>14.343 95.657 1.195 0 0 0</pose>
+          <pose>14.343 95.657 1.032 -0.0023 0.0008 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_3_top">
-          <pose>14.343 95.657 1.465 0 0 0</pose>
+          <pose>14.343 95.657 1.302 -0.0023 0.0008 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 4 -->
         <collision name="pylon_4_col">
-          <pose>12.000 90.000 1.152 0 0 0</pose>
+          <pose>12.000 90.000 0.925 -0.0012 -0.0232 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_4_base">
-          <pose>12.000 90.000 0.822 0 0 0</pose>
+          <pose>12.000 90.000 0.595 -0.0012 -0.0232 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_4_cone">
-          <pose>12.000 90.000 1.152 0 0 0</pose>
+          <pose>12.000 90.000 0.925 -0.0012 -0.0232 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_4_stripe">
-          <pose>12.000 90.000 1.252 0 0 0</pose>
+          <pose>12.000 90.000 1.025 -0.0012 -0.0232 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_4_top">
-          <pose>12.000 90.000 1.522 0 0 0</pose>
+          <pose>12.000 90.000 1.295 -0.0012 -0.0232 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 5 -->
         <collision name="pylon_5_col">
-          <pose>14.343 84.343 1.111 0 0 0</pose>
+          <pose>14.343 84.343 0.922 0.0049 0.0112 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_5_base">
-          <pose>14.343 84.343 0.781 0 0 0</pose>
+          <pose>14.343 84.343 0.592 0.0049 0.0112 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_5_cone">
-          <pose>14.343 84.343 1.111 0 0 0</pose>
+          <pose>14.343 84.343 0.922 0.0049 0.0112 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_5_stripe">
-          <pose>14.343 84.343 1.211 0 0 0</pose>
+          <pose>14.343 84.343 1.022 0.0049 0.0112 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_5_top">
-          <pose>14.343 84.343 1.481 0 0 0</pose>
+          <pose>14.343 84.343 1.292 0.0049 0.0112 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 6 -->
         <collision name="pylon_6_col">
-          <pose>20.000 82.000 1.182 0 0 0</pose>
+          <pose>20.000 82.000 0.824 0.0088 0.0153 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_6_base">
-          <pose>20.000 82.000 0.852 0 0 0</pose>
+          <pose>20.000 82.000 0.494 0.0088 0.0153 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_6_cone">
-          <pose>20.000 82.000 1.182 0 0 0</pose>
+          <pose>20.000 82.000 0.824 0.0088 0.0153 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_6_stripe">
-          <pose>20.000 82.000 1.282 0 0 0</pose>
+          <pose>20.000 82.000 0.924 0.0088 0.0153 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_6_top">
-          <pose>20.000 82.000 1.552 0 0 0</pose>
+          <pose>20.000 82.000 1.194 0.0088 0.0153 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
         <!-- Pylon 7 -->
         <collision name="pylon_7_col">
-          <pose>25.657 84.343 0.684 0 0 0</pose>
+          <pose>25.657 84.343 0.763 0.0087 0.0133 0</pose>
           <geometry><cylinder><radius>0.12</radius><length>0.7</length></cylinder></geometry>
         </collision>
         <visual name="pylon_7_base">
-          <pose>25.657 84.343 0.354 0 0 0</pose>
+          <pose>25.657 84.343 0.433 0.0087 0.0133 0</pose>
           <geometry><cylinder><radius>0.18</radius><length>0.04</length></cylinder></geometry>
           <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
         </visual>
         <visual name="pylon_7_cone">
-          <pose>25.657 84.343 0.684 0 0 0</pose>
+          <pose>25.657 84.343 0.763 0.0087 0.0133 0</pose>
           <geometry><cylinder><radius>0.1</radius><length>0.7</length></cylinder></geometry>
           <material><ambient>0.8 0.1 0.05 1</ambient><diffuse>0.95 0.15 0.05 1</diffuse></material>
         </visual>
         <visual name="pylon_7_stripe">
-          <pose>25.657 84.343 0.784 0 0 0</pose>
+          <pose>25.657 84.343 0.863 0.0087 0.0133 0</pose>
           <geometry><cylinder><radius>0.105</radius><length>0.15</length></cylinder></geometry>
           <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.95 0.95 0.95 1</diffuse></material>
         </visual>
         <visual name="pylon_7_top">
-          <pose>25.657 84.343 1.054 0 0 0</pose>
+          <pose>25.657 84.343 1.133 0.0087 0.0133 0</pose>
           <geometry><sphere><radius>0.05</radius></sphere></geometry>
           <material><ambient>0.9 0.1 0.0 1</ambient><diffuse>1.0 0.1 0.0 1</diffuse><emissive>1.0 0.1 0.0 1</emissive></material>
         </visual>
@@ -790,7 +790,7 @@
     <!-- 7. Competition Tools and Geological Specimens -->
     <model name="tool_heavy_wrench">
       <static>true</static>
-      <pose>25.0 35.0 0.474 0 0 0</pose>
+      <pose>25.0 35.0 0.510 -0.0041 -0.0146 0.0000</pose>
       <link name="link">
         <inertial><mass>1.8</mass><inertia><ixx>0.01</ixx><iyy>0.01</iyy><izz>0.01</izz></inertia></inertial>
         <collision name="wrench_col">
@@ -812,7 +812,7 @@
 
     <model name="tool_hammer_mallet">
       <static>true</static>
-      <pose>28.0 38.0 1.901 0 0 0.6</pose>
+      <pose>28.0 38.0 0.528 -0.0178 -0.0167 0.6000</pose>
       <link name="link">
         <inertial><mass>1.5</mass><inertia><ixx>0.01</ixx><iyy>0.01</iyy><izz>0.01</izz></inertia></inertial>
         <collision name="hammer_col">
@@ -834,7 +834,7 @@
 
     <model name="tool_screwdriver_set">
       <static>true</static>
-      <pose>40.0 60.0 1.154 0 0 0</pose>
+      <pose>40.0 60.0 0.460 -0.0169 -0.0016 0.0000</pose>
       <link name="link">
         <inertial><mass>0.9</mass><inertia><ixx>0.005</ixx><iyy>0.005</iyy><izz>0.005</izz></inertia></inertial>
         <collision name="col">
@@ -851,7 +851,7 @@
 
     <model name="tool_instrument_toolbox">
       <static>true</static>
-      <pose>70.0 45.0 1.256 0 0 0</pose>
+      <pose>70.0 45.0 1.042 0.0473 -0.0185 0.0000</pose>
       <link name="link">
         <inertial><mass>4.5</mass><inertia><ixx>0.05</ixx><iyy>0.05</iyy><izz>0.05</izz></inertia></inertial>
         <collision name="col">
@@ -873,7 +873,7 @@
 
     <model name="rock_basalt_specimen">
       <static>true</static>
-      <pose>55.0 85.0 0.744 0.1 0.2 0.4</pose>
+      <pose>55.0 85.0 0.785 -0.0374 0.0162 0.4000</pose>
       <link name="link">
         <inertial><mass>3.2</mass><inertia><ixx>0.02</ixx><iyy>0.02</iyy><izz>0.02</izz></inertia></inertial>
         <collision name="col">
@@ -895,7 +895,7 @@
     <!-- Obstacle 1: Monolithic Boulder Formation (transit corridor between Spawn and IDMO) -->
     <model name="obstacle_monolith_boulder_a">
       <static>true</static>
-      <pose>22.0 28.0 0.310 0 0 0</pose>
+      <pose>22.0 28.0 1.207 0.0524 -0.0051 0.0000</pose>
       <link name="link">
         <collision name="main_boulder_col">
           <pose>0 0 0.9 0 0 0.3</pose>
@@ -926,7 +926,7 @@
     <!-- Obstacle 2: Fallen Habitat Cargo Module (between Cache site and Crater) -->
     <model name="obstacle_habitat_cargo_module">
       <static>true</static>
-      <pose>45.0 42.0 0.647 0 0 0.45</pose>
+      <pose>45.0 42.0 1.389 -0.0213 0.0379 0.4500</pose>
       <link name="link">
         <collision name="module_body_col">
           <pose>0 0 0.85 0 0 0</pose>
@@ -959,7 +959,7 @@
     <!-- Obstacle 3: Massive Crag Formation (corridor heading to Marker Alpha) -->
     <model name="obstacle_crag_formation_b">
       <static>true</static>
-      <pose>50.0 62.0 1.569 0 0 0</pose>
+      <pose>50.0 62.0 2.140 -0.0170 -0.0712 0.0000</pose>
       <link name="link">
         <collision name="spire_col">
           <pose>0 0 1.25 0.08 0.12 0.3</pose>
@@ -985,7 +985,7 @@
     <!-- Obstacle 4: Slalom Pillars (corridor heading to Marker Bravo) -->
     <model name="obstacle_slalom_pillar_1">
       <static>true</static>
-      <pose>72.0 65.0 0.740 0 0 0</pose>
+      <pose>72.0 65.0 2.119 -0.0485 0.0433 0.0000</pose>
       <link name="link">
         <collision name="col">
           <pose>0 0 1.1 0 0 0</pose>
@@ -1001,7 +1001,7 @@
 
     <model name="obstacle_slalom_pillar_2">
       <static>true</static>
-      <pose>76.0 72.0 0.744 0 0 0.5</pose>
+      <pose>76.0 72.0 1.620 -0.0042 0.0130 0.5000</pose>
       <link name="link">
         <collision name="col">
           <pose>0 0 1.0 0 0 0</pose>
@@ -1018,7 +1018,7 @@
     <!-- Obstacle 5: Decommissioned Weather/Comm Mast Debris (near IDMO panel) -->
     <model name="obstacle_comm_mast_debris">
       <static>true</static>
-      <pose>28.0 52.0 1.464 0 0 0.8</pose>
+      <pose>28.0 52.0 0.593 -0.0082 -0.0158 0.8000</pose>
       <link name="link">
         <!-- Base concrete / composite footing -->
         <collision name="footing_col">
