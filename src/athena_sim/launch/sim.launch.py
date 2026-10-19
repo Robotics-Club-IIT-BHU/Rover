@@ -46,6 +46,7 @@ def generate_launch_description():
     default_bridge_cfg = os.path.join(pkg_sim_share, 'config', 'bridge.yaml')
     default_nav2_cfg = os.path.join(pkg_sim_share, 'config', 'nav2_params_sim.yaml')
     default_ekf_cfg = os.path.join(pkg_sim_share, 'config', 'dual_ekf_navsat_sim.yaml')
+    default_rviz_cfg = os.path.join(pkg_sim_share, 'config', 'athena_sim.rviz')
     xacro_file = os.path.join(pkg_sim_share, 'urdf', 'athena_sim.urdf.xacro')
 
     # Launch configuration variables
@@ -60,6 +61,8 @@ def generate_launch_description():
     run_localization = LaunchConfiguration('run_localization')
     run_navigation = LaunchConfiguration('run_navigation')
     run_mission = LaunchConfiguration('run_mission')
+    rviz = LaunchConfiguration('rviz')
+    rviz_config = LaunchConfiguration('rviz_config')
 
     # Robot Description
     robot_description = ParameterValue(
@@ -214,6 +217,17 @@ def generate_launch_description():
         }],
     )
 
+    # RViz2 Visualization
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='screen',
+        arguments=['-d', rviz_config],
+        condition=IfCondition(rviz),
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     return LaunchDescription([
         # Launch Arguments
         DeclareLaunchArgument('world', default_value=default_world, description='Path to SDF world file'),
@@ -227,6 +241,8 @@ def generate_launch_description():
         DeclareLaunchArgument('run_localization', default_value='true', description='Launch dual EKF and navsat_transform'),
         DeclareLaunchArgument('run_navigation', default_value='false', description='Launch Nav2 stack'),
         DeclareLaunchArgument('run_mission', default_value='false', description='Launch IRC 2027 rules engine and scorer'),
+        DeclareLaunchArgument('rviz', default_value='false', description='Launch RViz2 with pre-configured simulation layout'),
+        DeclareLaunchArgument('rviz_config', default_value=default_rviz_cfg, description='Path to RViz2 configuration file'),
 
         # Nodes and Inclusions
         gz_resource_path,
@@ -242,4 +258,5 @@ def generate_launch_description():
         localization,
         navigation,
         mission_runner,
+        rviz_node,
     ])

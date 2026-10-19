@@ -106,14 +106,28 @@ Launches Gazebo, spawns Athena rover, starts the ROS-Gazebo parameter bridge, TF
 ros2 launch athena_sim sim.launch.py
 ```
 
-### 2. Headless Simulation (For CI, Servers, or Weak GPUs)
+### 2. Simulation with Pre-Configured RViz2 Layout
+Launches Gazebo and automatically opens RViz2 with pre-configured robot model, dense depth point clouds, STVL costmaps, and spectator feeds:
+
+```bash
+ros2 launch athena_sim sim.launch.py rviz:=true
+```
+
+### 3. Headless Simulation (For CI, Servers, or Weak GPUs)
 Disables the 3D GUI client while running the complete physics engine and publishing all camera, IMU, GPS, and odometry topics:
 
 ```bash
 ros2 launch athena_sim sim.launch.py headless:=true
 ```
 
-### 3. Lightweight Smoke Test
+### 4. Headless Physics with RViz2 Viewport
+Runs Gazebo physics engine headlessly while visualizing in RViz2:
+
+```bash
+ros2 launch athena_sim sim.launch.py headless:=true rviz:=true
+```
+
+### 5. Lightweight Smoke Test
 Spawns the rover and bridges basic sensors without Nav2:
 
 ```bash
@@ -125,6 +139,8 @@ ros2 launch athena_sim test_world.launch.py
 | Argument | Default | Description |
 | :--- | :--- | :--- |
 | `world` | `sproscape.sdf` | Absolute path to the SDF world file. |
+| `rviz` | `false` | When `true`, automatically launches RViz2 with `athena_sim.rviz`. |
+| `rviz_config` | `athena_sim.rviz` | Path to custom RViz2 configuration file. |
 | `headless` | `false` | When `true`, runs simulation headless (`-s -r`) without GUI window. |
 | `gui` | `true` | When `false`, disables Gazebo GUI interface. |
 | `use_sim_time` | `true` | Sets ROS parameter `/use_sim_time` to match Gazebo simulation clock. |
