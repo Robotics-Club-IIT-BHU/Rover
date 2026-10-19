@@ -1,0 +1,17 @@
+waypoints:
+- name: DROP_ALPHA
+  latitude: 12.8620288
+  longitude: 77.4382764
+  yaw: 0.0
+- name: DROP_BRAVO
+  latitude: 12.8621187
+  longitude: 77.4387371
+  yaw: 0.0
+- name: DROP_CACHE
+  latitude: 12.8616695
+  longitude: 77.4385529
+  yaw: 0.0
+- name: TOOL_HAMMER
+  latitude: 12.8612192
+  longitude: 77.4377973
+  yaw: 0.0

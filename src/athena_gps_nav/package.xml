@@ -51,10 +51,6 @@
        make `rosdep install` fail rather than succeed.  Install it with
        `pip3 install pymavlink` on a fresh machine. -->
 
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
-
   <export>
     <build_type>ament_python</build_type>
   </export>

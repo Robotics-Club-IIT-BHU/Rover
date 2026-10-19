@@ -29,7 +29,6 @@ setup(
     maintainer_email='thomas.j.chackenkulam295@gmail.com',
     description='GPS + VIO + IMU Nav2 navigation stack for the Athena rover',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'pixhawk_bridge = athena_gps_nav.pixhawk_bridge:main',

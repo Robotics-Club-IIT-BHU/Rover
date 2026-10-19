@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <model name="abex_sample_site">
+    <static>true</static>
+    <link name="link">
+      <!-- Ground patch visual -->
+      <visual name="patch">
+        <pose>0 0 0.01 0 0 0</pose>
+        <geometry><cylinder><radius>1.0</radius><length>0.02</length></cylinder></geometry>
+        <material><ambient>0.4 0.25 0.15 1</ambient><diffuse>0.4 0.25 0.15 1</diffuse></material>
+      </visual>
+      <!-- Small survey flag -->
+      <visual name="flag">
+        <pose>0 0 0.4 0 0 0</pose>
+        <geometry><cylinder><radius>0.015</radius><length>0.8</length></cylinder></geometry>
+        <material><ambient>0.9 0.6 0.1 1</ambient><diffuse>0.9 0.6 0.1 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>

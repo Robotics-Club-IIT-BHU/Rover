@@ -1,0 +1,116 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="athena_sim">
+
+  <!--
+    athena_sim.urdf.xacro
+
+    Top-level simulation model extending athena.urdf.xacro.
+    Enables sim:=true for collision geometries, continuous wheel joints,
+    and attaches Gazebo Fortress (gz-sim 6) system and sensor plugins.
+  -->
+
+  <xacro:arg name="sim" default="true"/>
+  <xacro:include filename="$(find athena_gps_nav)/urdf/athena.urdf.xacro"/>
+
+  <!-- =====================================================================
+       GAZEBO FORTRESS (IGNITION) SYSTEM PLUGINS
+       ===================================================================== -->
+
+  <gazebo>
+    <!-- DiffDrive system plugin controlling 6-wheel skid steer.
+         Note: tf_topic is sent to /sim/tf instead of /tf because ekf_local
+         owns the odom -> base_link transform in the ROS TF tree. -->
+    <plugin filename="ignition-gazebo-diff-drive-system"
+            name="ignition::gazebo::systems::DiffDrive">
+      <left_joint>wheel_front_left_joint</left_joint>
+      <left_joint>wheel_mid_left_joint</left_joint>
+      <left_joint>wheel_rear_left_joint</left_joint>
+      <right_joint>wheel_front_right_joint</right_joint>
+      <right_joint>wheel_mid_right_joint</right_joint>
+      <right_joint>wheel_rear_right_joint</right_joint>
+      <wheel_separation>0.85</wheel_separation>
+      <wheel_radius>0.15</wheel_radius>
+      <odom_publish_frequency>20</odom_publish_frequency>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/sim/odom</odom_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <tf_topic>/sim/tf</tf_topic>
+    </plugin>
+
+    <!-- Joint state publisher for wheel spin visualization -->
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+    </plugin>
+  </gazebo>
+
+  <!-- =====================================================================
+       GAZEBO SENSORS
+       ===================================================================== -->
+
+  <!-- RealSense D435i RGB-D Camera at camera_link -->
+  <gazebo reference="camera_link">
+    <sensor name="rgbd_camera" type="rgbd_camera">
+      <camera>
+        <horizontal_fov>1.5184</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.25</near>
+          <far>4.5</far>
+        </clip>
+        <depth_camera>
+          <clip>
+            <near>0.25</near>
+            <far>4.5</far>
+          </clip>
+        </depth_camera>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+      <always_on>1</always_on>
+      <update_rate>15</update_rate>
+      <visualize>true</visualize>
+      <topic>/camera/camera</topic>
+    </sensor>
+  </gazebo>
+
+  <!-- Pixhawk Cube Orange IMU at imu_link -->
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>1</always_on>
+      <update_rate>50</update_rate>
+      <visualize>false</visualize>
+      <topic>/imu/data_raw</topic>
+      <imu>
+        <angular_velocity>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>0.0005</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>0.0005</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>0.0005</stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>0.005</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>0.005</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>0.005</stddev></noise></z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+  <!-- RTK GNSS NavSat sensor at gps_link -->
+  <gazebo reference="gps_link">
+    <sensor name="navsat_sensor" type="navsat">
+      <always_on>1</always_on>
+      <update_rate>5</update_rate>
+      <topic>/gps/fix_raw</topic>
+    </sensor>
+  </gazebo>
+
+</robot>

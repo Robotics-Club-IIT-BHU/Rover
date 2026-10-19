@@ -1,0 +1,189 @@
+datum:
+  lat: 12.8614
+  lon: 77.438
+  alt: 860.0
+arena_size_m: 120.0
+base_station:
+  x: -48.0
+  y: -48.0
+  bounds:
+    x_min: -56.0
+    x_max: -38.0
+    y_min: -56.0
+    y_max: -38.0
+  name: Base Station Staging & Survey Area
+geological_zones:
+- id: ZONE_PROMONTORY
+  name: Promontory Terraced Ridge
+  peak_x: 28.0
+  peak_y: 26.0
+  max_elevation_m: 5.5
+- id: ZONE_CRATER
+  name: Amphi-Crater Complex
+  center_x: -25.0
+  center_y: 20.0
+  radius_m: 16.5
+  rim_relief_m: 1.44
+- id: ZONE_DUNES
+  name: Barchan Sand Dune Field
+  center_x: 20.0
+  center_y: -18.0
+  wave_height_m: 2.2
+- id: ZONE_GULLY
+  name: Sinuous Outflow Wash Channel
+  center_x: -5.0
+  center_y: 5.0
+  width_m: 5.5
+delivery_markers:
+- id: DROP_ALPHA
+  name: Marker Alpha (Valley Green Pad)
+  x: -10.0
+  y: 35.0
+- id: DROP_BRAVO
+  name: Marker Bravo (Promontory Blue Pad)
+  x: 35.0
+  y: 35.0
+- id: DROP_CACHE
+  name: ABEx Cache Drop / Pickup (Dune Pass)
+  x: 15.0
+  y: -25.0
+rado_objects:
+- id: TOOL_1
+  name: "Heavy Wrench (\u22647cm dia)"
+  x: -28.0
+  y: -25.0
+  mass_kg: 1.8
+- id: TOOL_HAMMER
+  name: Hammer / Mallet
+  x: -22.0
+  y: -20.0
+  mass_kg: 1.5
+- id: TOOL_2
+  name: Screwdriver Set
+  x: -5.0
+  y: 5.0
+  mass_kg: 0.9
+- id: BOX_1
+  name: Instrument Toolbox
+  x: 18.0
+  y: -5.0
+  mass_kg: 4.5
+- id: ROCK_1
+  name: Basalt Specimen A
+  x: 5.0
+  y: 30.0
+  mass_kg: 3.2
+abex_sites:
+- id: ABEX_SITE_A
+  name: Crater Stratigraphy Outcrop
+  x: -25.0
+  y: 20.0
+- id: ABEX_SITE_B
+  name: Fine-Soil Dune Basin
+  x: 40.0
+  y: -20.0
+idmo_panel:
+  x: -30.0
+  y: -10.0
+  name: Mock Maintenance Panel (1.8m)
+red_zones:
+- id: RED_ZONE_1
+  name: Contaminated Zone North Trench
+  center_x: 10.0
+  center_y: 22.0
+  radius_m: 6.5
+- id: RED_ZONE_2
+  name: Contaminated Crater Rift
+  center_x: -36.0
+  center_y: 34.0
+  radius_m: 7.5
+obstacles:
+- id: OBSTACLE_BOULDER_A
+  name: Monolithic Boulder Formation
+  x: -25.0
+  y: -32.0
+  size:
+  - 2.4
+  - 2.0
+  - 1.8
+- id: OBSTACLE_HABITAT_MODULE
+  name: Habitat Cargo Module
+  x: -5.0
+  y: -15.0
+  size:
+  - 3.6
+  - 1.8
+  - 1.7
+- id: OBSTACLE_CRAG_B
+  name: Massive Crag Spire & Buttress
+  x: 8.0
+  y: 10.0
+  size:
+  - 2.5
+  - 2.2
+  - 2.5
+- id: OBSTACLE_SLALOM_1
+  name: Slalom Pillar 1
+  x: 25.0
+  y: 12.0
+  size:
+  - 1.5
+  - 1.5
+  - 2.2
+- id: OBSTACLE_SLALOM_2
+  name: Slalom Pillar 2
+  x: 30.0
+  y: 18.0
+  size:
+  - 1.8
+  - 1.8
+  - 2.0
+- id: OBSTACLE_COMM_MAST
+  name: Decommissioned Comm Mast Debris
+  x: -15.0
+  y: -2.0
+  size:
+  - 4.2
+  - 1.8
+  - 0.9
+natural_rock_field:
+- id: ROCK_GULLY_1
+  name: Gully Wash Rock
+  x: -2.0
+  y: 6.0
+  size:
+  - 1.2
+  - 1.0
+  - 0.8
+- id: ROCK_HILL_2
+  name: Promontory Slope Rock
+  x: 18.0
+  y: 16.0
+  size:
+  - 1.4
+  - 1.1
+  - 0.9
+- id: ROCK_CRATER_EJECTA
+  name: Crater Ejecta Boulder
+  x: -14.0
+  y: 26.0
+  size:
+  - 1.5
+  - 1.2
+  - 1.0
+- id: ROCK_DUNE_SPUR
+  name: Dune Pass Guide Rock
+  x: 26.0
+  y: -8.0
+  size:
+  - 1.1
+  - 0.9
+  - 0.7
+- id: ROCK_PLAIN_STONE
+  name: West Plain Rock
+  x: -34.0
+  y: -4.0
+  size:
+  - 0.8
+  - 0.7
+  - 0.5

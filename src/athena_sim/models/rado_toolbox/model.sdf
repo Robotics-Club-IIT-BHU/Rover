@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <model name="rado_toolbox">
+    <link name="link">
+      <inertial>
+        <mass>4.5</mass>
+        <inertia><ixx>0.05</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.08</iyy><iyz>0</iyz><izz>0.10</izz></inertia>
+      </inertial>
+      <collision name="box_col">
+        <pose>0 0 0.12 0 0 0</pose>
+        <geometry><box><size>0.40 0.25 0.24</size></box></geometry>
+      </collision>
+      <visual name="box_vis">
+        <pose>0 0 0.12 0 0 0</pose>
+        <geometry><box><size>0.40 0.25 0.24</size></box></geometry>
+        <material><ambient>0.8 0.1 0.1 1</ambient><diffuse>0.8 0.1 0.1 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>

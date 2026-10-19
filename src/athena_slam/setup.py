@@ -21,7 +21,6 @@ setup(
     maintainer_email='thomas.j.chackenkulam295@gmail.com',
     description='SLAM package for Athena rover using RTAB-Map and RealSense',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             "filter = athena_slam.point_cloud_filter:main",

@@ -23,7 +23,6 @@ setup(
     maintainer_email='thomas.j.chackenkulam295@gmail.com',
     description='Motor drive, wiring checks and calibration for the Athena rover',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'motor_bridge = athena_drive.motor_bridge:main',
