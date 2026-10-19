@@ -24,11 +24,6 @@ setup(
     description='Athena rover drive: differential PWM serial bridge for the '
                 'Pico W motor controller (v2 firmware) + keyboard teleop',
     license='Apache-2.0',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
     entry_points={
         'console_scripts': [
             'move = drive.move:main',

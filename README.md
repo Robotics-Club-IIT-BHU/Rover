@@ -9,16 +9,20 @@ This page is **how to run it**. How it is built: [docs/ARCHITECTURE.md](src/docs
 
 | I want to | Read |
 |---|---|
+| Run the IRC 2027 Gazebo simulation (Sproscape 120x120m arena) | [athena_sim/README.md](src/athena_sim/README.md) |
 | Understand the packages, data flow, frames, design decisions | [docs/ARCHITECTURE.md](src/docs/ARCHITECTURE.md) |
 | Run, tune, test or fix navigation | [athena_gps_nav/README.md](src/athena_gps_nav/README.md) |
 | Wire (pin map), calibrate, flash or debug the motors | [athena_drive/README.md](src/athena_drive/README.md) |
 | SSH in, get through WiFi login, use `rviz2` from a laptop | [athena_remote/README.md](src/athena_remote/README.md) |
 | Every Foxglove panel, goal, waypoint and troubleshooting step | [athena_remote/docs/FOXGLOVE_PANEL.md](src/athena_remote/docs/FOXGLOVE_PANEL.md) |
 | Test navigation from the Foxglove panel | [athena_remote/TESTING.md](src/athena_remote/TESTING.md) |
+| Visual SLAM and point cloud processing | [athena_slam/README.md](src/athena_slam/README.md) |
 | Change code, build, use git | [CONTRIBUTING.md](src/CONTRIBUTING.md) |
 
 ## Contents
 
+- [Plug-and-Play Setup & Installation](#plug-and-play-setup--installation)
+- [Simulation Bringup (IRC 2027 Sproscape World)](#simulation-bringup-irc-2027-sproscape-world)
 1. [Get a shell on the rover](#1-get-a-shell-on-the-rover)
    - [Log in to the institute WiFi](#log-in-to-the-institute-wifi)
 2. [Bring the rover up](#2-bring-the-rover-up)
@@ -28,6 +32,66 @@ This page is **how to run it**. How it is built: [docs/ARCHITECTURE.md](src/docs
 6. [Everyday commands](#6-everyday-commands)
 7. [Hardware](#7-hardware)
 8. [Current state](#8-current-state-hardware-last-verified-september-2026)
+
+---
+
+## Plug-and-Play Setup & Installation
+
+The entire Athena repository is configured for one-command dependency installation via `rosdep` on **Ubuntu 22.04 LTS** and **ROS 2 Humble**.
+
+### Step 1: Install Dependencies in One Go
+From the workspace root (`~/Rover`):
+
+```bash
+cd ~/Rover
+
+# 1. Update rosdep package database
+rosdep update
+
+# 2. Install all system, ROS, and library dependencies automatically
+rosdep install --from-paths src --ignore-src -r -y
+
+# 3. Install Pixhawk MAVLink Python interface (pip-installed for physical GPS bridge)
+pip3 install pymavlink
+```
+
+### Step 2: Run Pre-Flight Environment Diagnostic Audit
+Validate that your operating system, ROS 2 distribution, Gazebo simulation engine, Python modules, and hardware permissions are fully configured:
+
+```bash
+python3 scripts/check_env.py
+```
+*(Also runnable after workspace build as `ros2 run athena_sim check_env`)*
+
+The diagnostic tool audits:
+- **Host OS & Architecture:** Ubuntu 22.04 LTS (Jammy) x86_64 or aarch64 (Jetson).
+- **ROS 2 Distribution:** Active `ROS_DISTRO=humble` configuration.
+- **Gazebo Simulator:** Verifies `gz sim` (Harmonic 8.x) or `ign gazebo` (Fortress 6.x) and `ros_gz_bridge`.
+- **Hardware Access:** Confirms user membership in the `dialout` group for serial ports (`/dev/ttyACM*`).
+- **Python Libraries:** Confirms `numpy`, `PIL` (Pillow), `pyyaml`, `matplotlib`, `cv2` (OpenCV), and `pymavlink`.
+- **Display & GPU Acceleration:** Checks X11/Wayland display server and DRI direct rendering (`/dev/dri/renderD128`).
+
+### Step 3: Build the Workspace
+```bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+---
+
+## Simulation Bringup (IRC 2027 Sproscape World)
+
+The `athena_sim` package provides a 3D Martian-analog arena with procedural heightmaps, terraced ridges, amphi-crater, sand dunes, RTK GPS error modeling, and dual HD spectator cameras.
+
+```bash
+# Launch full simulation with Gazebo 3D GUI:
+ros2 launch athena_sim sim.launch.py
+
+# Launch headless simulation (for CI, cloud servers, or machines without GPU):
+ros2 launch athena_sim sim.launch.py headless:=true
+```
+
+For full details, topic mappings, spectator cameras, and orthographic topographic maps, see [src/athena_sim/README.md](src/athena_sim/README.md).
 
 ---
 

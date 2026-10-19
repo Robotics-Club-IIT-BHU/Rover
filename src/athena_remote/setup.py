@@ -24,7 +24,6 @@ setup(
     maintainer_email='thomas.j.chackenkulam295@gmail.com',
     description='Operator front end for Athena: Foxglove, goals, waypoints, remote access',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'captive_login = athena_remote.captive_login:main',
