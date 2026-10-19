@@ -1,6 +1,6 @@
-# Athena Autonomous Rover (IRC 2027)
+# Athena Autonomous Rover 
 
-Athena is a high-mobility, six-wheeled autonomous outdoor rover designed and developed by the **Robotics Club at IIT (BHU) Varanasi** for the **International Rover Challenge (IRC 2027)** finals at Dayananda Sagar University, Bengaluru.
+Athena is a high-mobility, six-wheeled autonomous outdoor rover designed and developed by the **Robotics Club at IIT (BHU) Varanasi**. 
 
 The platform is engineered to autonomously navigate extreme, unstructured Martian-analog terrain—traversing boulders, soft sand dunes, steep terraced ridges, and amphi-craters. It performs centimeter-accurate RTK GNSS waypoint navigation, real-time 3D voxel obstacle perception (STVL), and multi-sensor fused state estimation without relying on external infrastructure.
 

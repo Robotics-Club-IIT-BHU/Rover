@@ -226,9 +226,14 @@
         <child  link="rocker_${side}"/>
         <origin xyz="${rocker_pivot_x} ${y_sign * suspension_y} ${rocker_pivot_z}" rpy="0 0 0"/>
         <axis xyz="0 1 0"/>
-        <limit lower="-0.45" upper="0.45" effort="120.0" velocity="5.0"/>
-        <dynamics damping="1.0" friction="0.5"/>
+        <limit lower="-0.45" upper="0.45" effort="200.0" velocity="5.0"/>
+        <dynamics damping="25.0" friction="1.0"/>
       </joint>
+      <gazebo reference="rocker_${side}_joint">
+        <implicitSpringDamper>true</implicitSpringDamper>
+        <springStiffness>600.0</springStiffness>
+        <springReference>0.0</springReference>
+      </gazebo>
     </xacro:if>
 
     <!-- Bogie link and pivot joint -->
@@ -356,7 +361,7 @@
         <parent link="${parent}"/>
         <child  link="${name}"/>
         <origin xyz="${x} ${y} ${z}" rpy="1.5708 0 0"/>
-        <axis xyz="0 0 1"/>
+        <axis xyz="0 0 -1"/>
         <dynamics damping="0.08" friction="0.05"/>
         <limit effort="50.0" velocity="20.0"/>
       </joint>

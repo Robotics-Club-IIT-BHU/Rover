@@ -174,6 +174,15 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
     )
 
+    # Point cloud downsampler for STVL costmaps and RViz visualization
+    pointcloud_downsampler = Node(
+        package='athena_gps_nav',
+        executable='pointcloud_downsampler',
+        name='pointcloud_downsampler',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+    )
+
     # Localization Stack (Dual EKF + NavSat Transform)
     localization = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -253,6 +262,7 @@ def generate_launch_description():
         bridge,
         imu_frame_bridge,
         camera_frame_bridge,
+        pointcloud_downsampler,
         sim_gps_rtk,
         vio_sim,
         localization,

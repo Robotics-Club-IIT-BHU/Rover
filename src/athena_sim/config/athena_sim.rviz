@@ -8,7 +8,9 @@ Panels:
         - /TF1
         - /RobotModel1
         - /Odometry local1
-        - /Depth Cloud1
+        - /Odometry global (GPS Fused)1
+        - /Depth Cloud (Downsampled)1
+        - /Local Costmap1
       Splitter Ratio: 0.55
     Tree Height: 550
   - Class: rviz_common/Views
@@ -22,9 +24,9 @@ Visualization Manager:
     - Class: rviz_default_plugins/Grid
       Enabled: true
       Name: Grid
-      Cell Size: 2
+      Cell Size: 1
       Plane Cell Count: 30
-      Color: 160; 160; 160
+      Color: 140; 140; 140
       Value: true
     - Class: rviz_default_plugins/TF
       Enabled: true
@@ -71,12 +73,12 @@ Visualization Manager:
         Value: /odometry/local
       Position Tolerance: 0.05
       Angle Tolerance: 0.05
-      Keep: 300
+      Keep: 400
       Shape:
-        Alpha: 1
+        Alpha: 0.9
         Axes Length: 0.3
         Axes Radius: 0.03
-        Color: 0; 220; 100
+        Color: 0; 200; 100
         Head Length: 0.1
         Head Radius: 0.05
         Shaft Length: 0.3
@@ -85,7 +87,7 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/Odometry
       Enabled: true
-      Name: Odometry global
+      Name: Odometry global (GPS Fused)
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -94,52 +96,43 @@ Visualization Manager:
         Value: /odometry/global
       Position Tolerance: 0.05
       Angle Tolerance: 0.05
-      Keep: 300
+      Keep: 400
       Shape:
-        Alpha: 1
-        Axes Length: 0.3
-        Axes Radius: 0.03
-        Color: 240; 100; 40
-        Head Length: 0.1
-        Head Radius: 0.05
-        Shaft Length: 0.3
-        Shaft Radius: 0.02
+        Alpha: 1.0
+        Axes Length: 0.4
+        Axes Radius: 0.04
+        Color: 255; 110; 25
+        Head Length: 0.12
+        Head Radius: 0.06
+        Shaft Length: 0.35
+        Shaft Radius: 0.03
         Value: Arrow
       Value: true
     - Class: rviz_default_plugins/Odometry
-      Enabled: true
-      Name: Ground Truth Sim Odom
+      Enabled: false
+      Name: VIO Raw
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /sim/odom
-      Position Tolerance: 0.05
-      Angle Tolerance: 0.05
-      Keep: 300
+        Value: /vio/odometry
+      Keep: 200
       Shape:
-        Alpha: 0.8
-        Axes Length: 0.3
-        Axes Radius: 0.03
-        Color: 50; 150; 250
-        Head Length: 0.1
-        Head Radius: 0.05
-        Shaft Length: 0.3
-        Shaft Radius: 0.02
+        Color: 80; 120; 230
         Value: Arrow
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/PointCloud2
       Enabled: true
-      Name: Depth Cloud
+      Name: Depth Cloud (Downsampled)
       Topic:
         Depth: 2
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /camera/camera/depth/color/points
-      Size (m): 0.03
-      Style: Points
+        Value: /camera/camera/depth/color/points_downsampled
+      Size (m): 0.02
+      Style: Flat Squares
       Color Transformer: AxisColor
       Value: true
     - Class: rviz_default_plugins/Map
@@ -195,30 +188,10 @@ Visualization Manager:
         Reliability Policy: Best Effort
         Value: /camera/camera/color/image_raw
       Value: false
-    - Class: rviz_default_plugins/Image
-      Enabled: false
-      Name: Spectator Overview Camera
-      Topic:
-        Depth: 2
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Best Effort
-        Value: /arena/overview_camera/image_raw
-      Value: false
-    - Class: rviz_default_plugins/Image
-      Enabled: false
-      Name: Base Station Camera
-      Topic:
-        Depth: 2
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Best Effort
-        Value: /arena/base_camera/image_raw
-      Value: false
   Global Options:
-    Background Color: 28; 30; 34
+    Background Color: 33; 36; 39
     Fixed Frame: odom
-    Frame Rate: 30
+    Frame Rate: 20
   Name: root
   Tools:
     - Class: rviz_default_plugins/MoveCamera
@@ -232,7 +205,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.5
+      Distance: 10
       Focal Point:
         X: 0
         Y: 0
@@ -242,7 +215,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.65
+      Pitch: 0.8
       Target Frame: base_link
       Value: Orbit (rviz_default_plugins)
       Yaw: 3.14

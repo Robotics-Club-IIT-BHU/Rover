@@ -1618,43 +1618,5 @@
       </link>
     </model>
 
-    <!-- 11. Arena Overview Spectator Camera (HD Bird's Eye View) -->
-    <model name="arena_spectator_camera">
-      <static>true</static>
-      <pose>0.0 -72.0 52.0 0 0.58 1.5708</pose>
-      <link name="spectator_link">
-        <sensor name="arena_overview_cam" type="camera">
-          <camera>
-            <horizontal_fov>1.45</horizontal_fov>
-            <image><width>1280</width><height>720</height></image>
-            <clip><near>0.5</near><far>300.0</far></clip>
-          </camera>
-          <always_on>1</always_on>
-          <update_rate>10</update_rate>
-          <visualize>false</visualize>
-          <topic>/arena/overview_camera/image</topic>
-        </sensor>
-      </link>
-    </model>
-
-    <!-- 12. Base Station Spectator Camera (Rover Spawn View) -->
-    <model name="base_spectator_camera">
-      <static>true</static>
-      <pose>-56.0 -56.0 4.5 0 0.22 0.7854</pose>
-      <link name="base_cam_link">
-        <sensor name="base_cam" type="camera">
-          <camera>
-            <horizontal_fov>1.25</horizontal_fov>
-            <image><width>1280</width><height>720</height></image>
-            <clip><near>0.2</near><far>200.0</far></clip>
-          </camera>
-          <always_on>1</always_on>
-          <update_rate>10</update_rate>
-          <visualize>false</visualize>
-          <topic>/arena/base_camera/image</topic>
-        </sensor>
-      </link>
-    </model>
-
   </world>
 </sdf>
