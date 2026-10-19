@@ -11,6 +11,8 @@ Panels:
         - /Odometry global (GPS Fused)1
         - /Depth Cloud (Downsampled)1
         - /Local Costmap1
+        - /Global Costmap1
+        - /Nav2 Plan1
       Splitter Ratio: 0.55
     Tree Height: 550
   - Class: rviz_common/Views
@@ -18,6 +20,14 @@ Panels:
       - /Current View1
     Name: Views
     Splitter Ratio: 0.5
+  - Class: nav2_rviz_plugins/Navigation 2
+    Name: Navigation 2
+  - Class: rviz_common/Tool Properties
+    Expanded:
+      - /2D Goal Pose1
+      - /Nav2 Goal1
+    Name: Tool Properties
+    Splitter Ratio: 0.58
 Visualization Manager:
   Class: ""
   Displays:
@@ -136,9 +146,11 @@ Visualization Manager:
       Color Transformer: AxisColor
       Value: true
     - Class: rviz_default_plugins/Map
+      Alpha: 0.7
+      Color Scheme: costmap
+      Draw Behind: false
       Enabled: true
       Name: Local Costmap
-      Color Scheme: costmap
       Topic:
         Depth: 1
         Durability Policy: Transient Local
@@ -148,13 +160,17 @@ Visualization Manager:
       Update Topic:
         Depth: 1
         Durability Policy: Volatile
+        History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /local_costmap/costmap_updates
+      Use Timestamp: false
       Value: true
     - Class: rviz_default_plugins/Map
-      Enabled: false
-      Name: Global Costmap
+      Alpha: 0.4
       Color Scheme: costmap
+      Draw Behind: true
+      Enabled: true
+      Name: Global Costmap
       Topic:
         Depth: 1
         Durability Policy: Transient Local
@@ -164,9 +180,11 @@ Visualization Manager:
       Update Topic:
         Depth: 1
         Durability Policy: Volatile
+        History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /global_costmap/costmap_updates
-      Value: false
+      Use Timestamp: false
+      Value: true
     - Class: rviz_default_plugins/Path
       Enabled: true
       Name: Nav2 Plan
@@ -177,6 +195,17 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /plan
       Color: 255; 85; 0
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: Nav2 Smoothed Plan
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /plan_smoothed
+      Color: 0; 220; 255
       Value: true
     - Class: rviz_default_plugins/Image
       Enabled: false
@@ -197,10 +226,23 @@ Visualization Manager:
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
     - Class: rviz_default_plugins/SetInitialPose
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /initialpose
     - Class: rviz_default_plugins/SetGoal
       Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /goal_pose
+    - Class: nav2_rviz_plugins/GoalTool
   Value: true
   Views:
     Current:

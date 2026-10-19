@@ -248,7 +248,7 @@ def generate_launch_description():
         DeclareLaunchArgument('spawn_yaw', default_value='0.7854', description='Initial spawn Yaw (rad)'),
         DeclareLaunchArgument('gps_mode', default_value='fixed', description='RTK mode: fixed | float | standalone | no_fix'),
         DeclareLaunchArgument('run_localization', default_value='true', description='Launch dual EKF and navsat_transform'),
-        DeclareLaunchArgument('run_navigation', default_value='false', description='Launch Nav2 stack'),
+        DeclareLaunchArgument('run_navigation', default_value='true', description='Launch Nav2 stack'),
         DeclareLaunchArgument('run_mission', default_value='false', description='Launch IRC 2027 rules engine and scorer'),
         DeclareLaunchArgument('rviz', default_value='false', description='Launch RViz2 with pre-configured simulation layout'),
         DeclareLaunchArgument('rviz_config', default_value=default_rviz_cfg, description='Path to RViz2 configuration file'),
